@@ -12,12 +12,12 @@ author: "Kihwan Kim"
 ### Models in life
 그럼 도메인 모델로 들어가기 전에, 도대체 모델은 무엇일까? 우리는 일상생활에서 모델이란 단어를 쉽게 찾아볼 수 있는데 그 중 흔히 알고 있는 '모델하우스'는 모델을 대표하는 뜻이다.
 
-<img src="https://t1.daumcdn.net/news/201806/08/seouleconomy/20180608175314677zamw.jpg" width="50%"></img>
+<img src="https://t1.daumcdn.net/news/201806/08/seouleconomy/20180608175314677zamw.jpg" width="50%">
 _흔한 모델하우스의 풍경_
 
 또 한가지는 모델이란 실체가 패션업계에서 직업으로 존재한다. 
 
-<img src="https://mblogthumb-phinf.pstatic.net/20140220_281/mandossin_1392866318034pKg6T_JPEG/naver_com_20140220_121831.jpg?type=w2"></img>
+<img src="https://mblogthumb-phinf.pstatic.net/20140220_281/mandossin_1392866318034pKg6T_JPEG/naver_com_20140220_121831.jpg?type=w2">
 _디자이너는 무엇을 말하고 싶었던 걸까_
 
 이렇듯 모델은 다양한 분야에서 쓰이고 있다. 그렇다면 이렇게 모델을 대표하는 2개의 뜻이 갖는 공통적인 의미는 무엇일까? 바로 실제, 실물을 설명 혹은 표현한 것이다. 이런 풀이는 오히려 더 혼란스럽게 만들수 있으니 위의 예로 다시 설명해보겠다.
@@ -25,7 +25,7 @@ _디자이너는 무엇을 말하고 싶었던 걸까_
 
 하나 더 예를 들면, 학창시절 자주 보았던 화학 분자 구조의 모형도도 모델이다. 
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Caffeine_%281%29_3D_ball.png/220px-Caffeine_%281%29_3D_ball.png" title="Caffeine" alt="Caffeine"></img>
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Caffeine_%281%29_3D_ball.png/220px-Caffeine_%281%29_3D_ball.png" title="Caffeine" alt="Caffeine">
 _현대 사회인들이 즐겨마시는 카페인의 화학 구조_
 
 위의 그림에서 카페인의 분자는 실제 자연 세계에서는 저렇게 생기진 않을 것이다. 다만 이해하기 쉽게 카페인의 실제를 그래픽으로 표현한 것이므로 모델이라 할 수 있다. 
@@ -39,7 +39,7 @@ _현대 사회인들이 즐겨마시는 카페인의 화학 구조_
 에릭 에반스는 모델을 설명하면서 18세기 중국이 만든 세계 지도를 예시로 들었는데, 그 지도도 모델의 특징인 단순화가 잘 나타나 있다.
 
 
-<img src="https://t1.daumcdn.net/cfile/tistory/1403A93C4F691D7032" width="60%"></img>
+<img src="https://t1.daumcdn.net/cfile/tistory/1403A93C4F691D7032" width="60%">
 _상상속의 세계지도 천하도_
 
 당시 중국은 한족(漢族)이 한족의 문화를 자랑스러워하며 타 민족을 배척하는 사상인 중화사상이 깊게 깔려 있었다. 그래서 중화사상의 측면을 알 수 있도록 중국을 제외한 나머지 국가를 단순하게 지도(model)로 세계(reality)를 표현했다. 
