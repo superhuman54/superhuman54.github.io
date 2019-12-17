@@ -2,6 +2,7 @@
 layout: post
 title: "What is Domain Model (1)"
 author: "Kihwan Kim"
+comments: true
 ---
 
 얼마 전, 도메인 주도 설계에 나오는 도메인 모델의 정의에 대해 질문을 받았다. 교과서적인 답변으로 마무리 지었고 나와 질문을 준 상대방도 답변에 대해 만족스럽지 못했다. 
