@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "What is Domain Model(1)"
+title: "What is Domain Model (1)"
 author: "Kihwan Kim"
 ---
 
@@ -12,7 +12,7 @@ author: "Kihwan Kim"
 ### Models in life
 그럼 도메인 모델로 들어가기 전에, 도대체 모델은 무엇일까? 우리는 일상생활에서 모델이란 단어를 쉽게 찾아볼 수 있는데 그 중 흔히 알고 있는 '모델하우스'는 모델을 대표하는 뜻이다.
 
-![Placeholder image](https://file.mk.co.kr/meet/neds/2019/02/image_readtop_2019_95758_15503107033637680.jpg "Placeholder image") {:width 70 height 70}
+![Placeholder image](https://file.mk.co.kr/meet/neds/2019/02/image_readtop_2019_95758_15503107033637680.jpg "Placeholder image")
 _흔한 모델하우스의 풍경_
 
 또 한가지는 모델이란 실체가 패션업계에서 직업으로 존재한다. 
