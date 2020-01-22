@@ -14,7 +14,7 @@ comments: true
 집은 물리적인 경계로 하여금 남을 구분하는 기능을 갖는다. 이런 집(domus)의 기능으로 자연스럽게 자신만의 영역을 낳으며 이 영역을 도메인(domain)이라 부른다. 단순히 다른 곳과 구분하고 범위를 정의하는 다른 단어들(area, zone, territory)로 도메인 모델의 도메인을 대체(replace) 할 수도 있었다. 하지만 도무스는 그 단어들과 다르게 더 구체적으로 '신의 집'이라는 다소 복합적인 뜻을 가지며 다른 단어들과 차이를 보인다. 신의 집은 신에게 결속된 장소이고 결국 신성한 장소로 해석 할 수 있다(기독교에서는 신을 뜻하는 dominus가 있다).  일반화하여 생각하면 결국 도메인은 영역을 뜻하지만 그 영역은 무엇인가 결속되어 있고 그 무엇의 활동, 기능, 효과가 미치는 범위가 바로 여기서 말하고 싶은 '도메인'이라 할 수 있다.
 
 ![The Santa Maria Del Fiore Cathedral dome, Image – jonathan-korner](https://happist.com/wp-content/uploads/2018/12/%EC%9D%B4%ED%83%88%EB%A6%AC%EC%95%84-%EC%97%AC%ED%96%89-%ED%94%BC%EB%A0%8C%EC%B2%B4-%EC%82%B0%ED%83%80-%EB%A7%88%EB%A6%AC%EC%95%84-%EB%8D%B8-%ED%94%BC%EC%98%A4%EB%A0%88-%EC%84%B1%EB%8B%B9-%EB%91%90%EC%98%A4%EB%AA%A8-The-Santa-Maria-Del-Fiore-Cathedral-dome-Image-jonathan-korner-1024x682.jpg)
-_피렌체의 두오모(duomo) 성당. 주변 건축물보다 더욱 높고 우뚝하게 솟은 건축 양식이 하느님에게 내 뜻을 더 가까이 전하려는 소망을 표현한다. 두오모도 신의 집인 도무스(domus)에서 유래되었다._ *The Santa Maria Del Fiore Cathedral dome, Image – jonathan-korner*
+_피렌체의 두오모(duomo) 성당. 주변 건축물보다 더욱 높고 우뚝하게 솟은 건축 양식이 하느님에게 내 뜻을 더 가까이 전하려는 소망을 표현한다. 두오모도 신의 집인 도무스(domus)에서 유래되었다. The Santa Maria Del Fiore Cathedral dome, Image – jonathan-korner_
 
 도메인은 현실 세계에서 사물이 될 수도 있고 인간의 활동, 관심사가 될 수 있다. 이런 도메인의 틀로 한정지을 수 있는 대상은 다양할 수 있으며 그 중 하나의 특정 도메인을 잘 아는것을 도메인 지식(domain knowledge)이 풍부하다고 할 수 있다. 도메인이 영역을 뜻하다보니 그 도메인에 관련된 지식의 양과 수준을 평가할 때 '넓다' 혹은 '좁다'라고 표현 할 수 있다. 가령, 금융권에서 오랫동안 몸을 담은 사람은 금융권 도메인 지식은 넓을 수 있지만 요식업 도메인 지식은 상대적으로 좁을 것이다. 
 
