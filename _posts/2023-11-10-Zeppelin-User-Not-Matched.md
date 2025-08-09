@@ -15,17 +15,19 @@ tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
 
 ![Exception](https://github.com/user-attachments/assets/a277404a-6023-40d7-8512-323f592d9175)
 
-
 이상한 점은 Spark 인터프리터가 분명히 `zeppelin` 사용자로 구동되고 있었는데, 갑자기 `admin` 사용자로 전환되어 HDFS에 쓰기 작업을 시도한다는 것이었다. HDFS의 `/user` 경로는 `hdfsadmingroup` 그룹에 대해서만 쓰기 권한이 허용되어 있었고, `admin` 사용자는 이 그룹에 속하지 않았기 때문에 당연히 에러가 발생할 수밖에 없었다.
+
+![/etc/hadoop/conf/hdfs-site.xml](https://github.com/user-attachments/assets/4c49c582-46c4-4743-b7a5-bc5fee871c35)
+![/etc/group](https://github.com/user-attachments/assets/5751230c-0109-4b4f-9016-ece9838342a3)
+
+
 
 ## 원인 분석
 
 문제의 근본적인 원인을 파악하기 위해 에러 스택트레이스를 자세히 분석해보았다. 에러는 클라이언트가 YARN에게 작업을 제출하고, 로컬 리소스를 새로운 디렉토리에 업로드하는 과정에서 새 디렉토리 생성에 실패하면서 발생했다.
-```scala
-  /**
-   * Set up a ContainerLaunchContext to launch our ApplicationMaster container.
-   * This sets up the launch environment, java options, and the command for launching the AM.
-   */
+```scala 
+  // org.apache.spark.yarn.Client
+
   private def createContainerLaunchContext(): ContainerLaunchContext = {
     logInfo("Setting up container launch context for our AM")
     val pySparkArchives =
@@ -87,6 +89,8 @@ tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
 문제는 이 `destDir` 변수가 `/user/admin`을 담고 있다는 점이었다. 정상적으로 동작한다면 `/user/zeppelin` 값이 설정되어야 하는데, 어디선가 `/user/admin`으로 변경되고 있었다.
 
 ```scala
+  // org.apache.spark.yarn.Client
+
    private[spark] val STAGING_DIR = ConfigBuilder("spark.yarn.stagingDir")
     .doc("Staging directory used while submitting applications.")
     .version("2.0.0")
@@ -133,6 +137,8 @@ tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
 핵심은 `getCurrentUser()`에서 현재 사용자를 결정하는 로직이었다. 이 메소드는 `getLoginUser()`를 호출하여 로그인 사용자를 반환하는데, Hadoop의 보안 체계는 [JAAS](https://docs.oracle.com/javase/7/docs/technotes/guides/security/jaas/JAASRefGuide.html)(Java Authentication and Authorization Service)를 사용한다.
 
 ```java
+  // org.apache.hadoop.security.UserGroupInformation
+
  * Login a subject with the given parameters.  If the subject is null,
    * the login context used to create the subject will be attached.
    * @param subject to login, null for new subject.
@@ -170,6 +176,8 @@ tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
 JAAS의 `LoginContext`에서 로그인을 시도하면 `LoginModule`에서 두 단계의 인증 과정을 거친다. 첫 번째는 `LoginModule.login()`에서 검증 단계이고, 두 번째는 `LoginModule.commit()`에서 인증 성공 시 주체를 저장하고 갱신하는 단계이다.
 
 ```java
+// org.apache.hadoop.security.UserGroupInformation
+
 public static class HadoopLoginModule implements LoginModule {
     private Subject subject;
 
@@ -250,6 +258,8 @@ public static class HadoopLoginModule implements LoginModule {
 ## Zeppelin의 사용자 처리 로직
 
 ```java
+ // org.apache.zeppelin.interpreter.launcher.SparkInterpreterLauncher
+
  public Map<String, String> buildEnvFromProperties(InterpreterLaunchContext context) throws IOException {
     Map<String, String> env = super.buildEnvFromProperties(context);
     Properties sparkProperties = new Properties();
