@@ -130,10 +130,6 @@ tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
 ```
 더 깊이 추적해보니 `submitApplication()` 메소드에서 `appStagingBaseDir`이 홈디렉토리로 지정되는데, 이때 사용자의 홈디렉토리가 결정되는 것을 발견했다. `spark.yarn.stagingDir` 설정이 없다면 기본적으로 `UserGroupInformation.getCurrentUser.getShortUserName`과 `FileSystem.get(hadoopConf).getHomeDirectory()`로 경로가 생성된다.
 
-
-**[이미지 3 위치: HDFS 디렉토리 권한 스크린샷]**
-*/user 디렉토리의 권한 설정 현황*
-
 핵심은 `getCurrentUser()`에서 현재 사용자를 결정하는 로직이었다. 이 메소드는 `getLoginUser()`를 호출하여 로그인 사용자를 반환하는데, Hadoop의 보안 체계는 [JAAS](https://docs.oracle.com/javase/7/docs/technotes/guides/security/jaas/JAASRefGuide.html)(Java Authentication and Authorization Service)를 사용한다.
 
 ```java
