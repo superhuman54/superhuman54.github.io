@@ -26,7 +26,7 @@ public String requestForm(@ModelAttribute @Valid AwesomeRequest request) {
 }
 ```
 
-이 API는 사용자가 KMC(한국모바일인증)에 요청하면 모바일 인증 페이지로 리다이렉트(302 응답코드)를 응답하는 기능이다. 문제는 **매번 다른 `trCert` 값**이 생성되면서 고유한 redirect URL이 만들어진다는 점이었다.
+이 API는 사용자가 KMC(한국모바일인증)에 요청하면 모바일 인증 페이지로 리다이렉트(302 응답코드)를 응답하는 기능이다. 문제는 **매번 다른 `cert` 값**이 생성되면서 고유한 redirect URL이 만들어진다는 점이었다.
 
 ## 원인 분석
 
@@ -63,7 +63,7 @@ public View resolveViewName(String viewName, Locale locale) throws Exception {
 
 캐시 키(key)를 작성할 때 `viewName`을 사용하는데, 이 `viewName`이 **뷰를 요청할 때마다 다르다면** 메모리에 축적된다. 
 
-실제로는 다음과 같은 과정을 거친다[4][5]:
+실제로는 다음과 같은 과정을 거친다:
 
 1. Controller에서 `return "redirect:" + dynamicUrl` 형태로 리턴
 2. View 클래스로 변환 작업 진행
@@ -89,16 +89,16 @@ Map의 키값들을 확인해보니 RedirectView가 많이 생성되어 있었�
 
 ### 올바른 구현 방식
 
-이 문제는 302 리다이렉트 URL을 요청마다 다르게 보내야 한다면, **RedirectView** 혹은 **ModelAndView** 객체를 사용해야 한다[5].
+이 문제는 302 리다이렉트 URL을 요청마다 다르게 보내야 한다면, **RedirectView** 혹은 **ModelAndView** 객체를 사용해야 한다.
 
 #### 방법 1: RedirectView 사용
 
 ```java
 @RequestMapping("/request")
 public String requestForm(@ModelAttribute @Valid AwesomeRequest request) {
-  log.info("{}", request);
-  String cert = 한국모바일인증클라이언트.encryptRequest(request.get사용자ID());
-  return new RedirectView(String.format(리다이렉트URLTemplate, cert));
+	log.info("{}", request);
+  	String cert = 한국모바일인증클라이언트.encryptRequest(request.get사용자ID());
+  	return new RedirectView(String.format(리다이렉트URLTemplate, cert));
 }
 ```
 
@@ -106,14 +106,14 @@ public String requestForm(@ModelAttribute @Valid AwesomeRequest request) {
 ```java
 @RequestMapping("/request")
 public ModelAndView requestForm(@ModelAttribute @Valid AwesomeRequest request) {
-  log.info("{}", requestVo);
-  String cert = 한국모바일인증클라이언트.encryptRequest(request.get사용자ID());
-  ModelAndView modelAndView = new ModelAndView();
-  RedirectView redirectView = new RedirectView();
-  redirectView.setUrl(String.format(리다이렉트URLTemplate, cert));
-  modelAndView.setView(redirectView);
-  
-  return modelAndView;
+	log.info("{}", requestVo);
+	String cert = 한국모바일인증클라이언트.encryptRequest(request.get사용자ID());
+	ModelAndView modelAndView = new ModelAndView();
+	RedirectView redirectView = new RedirectView();
+	redirectView.setUrl(String.format(리다이렉트URLTemplate, cert));
+	modelAndView.setView(redirectView);
+	
+	return modelAndView;
 
 ```
 
@@ -143,9 +143,9 @@ public ModelAndView requestForm(@ModelAttribute @Valid AwesomeRequest request) {
 ```java
 // 위험한 코드 예시
 @GetMapping("/link/{key}")
-  public String redirectLinkPage(@PathVariable String key) {
-  String dynamicUrl = generateDynamicUrl(key); // 매번 다른 URL 생성
-return "redirect:" + dynamicUrl; // <- 메모리 누수 위험!
+public String redirectLinkPage(@PathVariable String key) {
+  	String dynamicUrl = generateDynamicUrl(key); // 매번 다른 URL 생성
+	return "redirect:" + dynamicUrl; // <- 메모리 누수 위험!
 }
 ```
 
