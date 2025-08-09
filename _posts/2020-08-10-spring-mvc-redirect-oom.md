@@ -74,11 +74,16 @@ public View resolveViewName(String viewName, Locale locale) throws Exception {
 
 Memory Analyzer Tool (MAT)로 확인한 결과:
 
+
+![MAT Analyzer](https://github.com/user-attachments/assets/77a843ff-9a2c-48f8-8b4f-030b9db0ab0e)
+
 - **Suspect 객체**: `java.util.concurrent.ConcurrentHashMap$Node`
 - **메모리 점유 패턴**: RedirectView 관련 객체들이 대량으로 생성되어 있음
 - **키값 패턴**: `org.springframework.web.servlet.view.RedirectView_redirect:{동적URL}` 형태
 
 Map의 키값들을 확인해보니 RedirectView가 많이 생성되어 있었고, 각각 다른 동적 URL을 가지고 있었다.
+![MAT Analyzer 2](https://github.com/user-attachments/assets/cedb8ca8-5ad4-4116-bd43-3e4ab509c09e)
+
 
 ## 해결 방법
 
