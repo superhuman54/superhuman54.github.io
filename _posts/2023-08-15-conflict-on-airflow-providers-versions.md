@@ -154,9 +154,6 @@ Airflow Core 라이브러리는 Airflow 2.6.0부터 `cli_config` 모듈을 소�
 
 답은 provider의 스펙에서 찾을 수 있었다.
 
-**[이미지 6 위치: 7.4.2 버전의 의존성 스펙]**
-*apache-airflow-providers-cncf-kubernetes 7.4.2의 setup.py 파일에서 확인한 의존성 정보*
-
 <img width="242" height="602" alt="image" src="https://github.com/user-attachments/assets/4de7574e-9ee9-4ed5-9f4a-f131d7b1b3a6" />
 
 *최신 7.4.2의 의존성에서 Airflow Core 의존성이 2.4.0+으로 설정된 것을 보여주는 스크린샷*
