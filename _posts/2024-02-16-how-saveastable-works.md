@@ -44,7 +44,9 @@ ALTER TABLE my_database.my_table SET TBLPROPERTIES('EXTERNAL'='true')
 
 또 다른 방법으로는 HiveQL을 직접 사용하는 것이다:
 ```sql
--– Hive CLI 또는 Beeline에서 실행
+/*
+Hive CLI 또는 Beeline에서 실행
+*/
 ALTER TABLE my_database.my_table SET TBLPROPERTIES('EXTERNAL'='true')
 ```
 
