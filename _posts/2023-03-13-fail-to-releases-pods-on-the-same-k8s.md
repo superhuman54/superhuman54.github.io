@@ -23,17 +23,17 @@ tags: [airflow, kubernetes, pod, duplicate, cleanup, troubleshooting]
 alpha에서 한국시각 18시 13분 경 다음의 Pod 생성 요청을 한다.
 
 ```text
-2023-03-08T09:13:29.836+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-4devg7t1 with labels: {‘dag_id’: ‘export-to-skt-searchcell’, ‘task_id’: ‘export_action_log’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
+2023-03-08T09:13:29.836+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-4devg7t1 with labels: {‘dag_id’: ‘foo-bar-dag-id’, ‘task_id’: ‘foo-bar-task-id’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
 ```
 이때 Airflow는 Pod에 다음의 레이블을 추가한다:
-```json
+```JSON
 {
-'dag_id': 'export-to-skt-searchcell', 
- 'task_id': 'export_action_log', 
- 'run_id': 'scheduled__2023-03-08T0130000000-77fa57adf', 
- 'kubernetes_pod_operator': 'True', 
- 'try_number': '1'
- }
+ "dag_id": "foo-bar-dag-id", 
+ "task_id": "foo-bar-task-id", 
+ "run_id": "scheduled__2023-03-08T0130000000-77fa57adf", 
+ "kubernetes_pod_operator": "True", 
+ "try_number": "1"
+}
 ```
 **[이미지 1 위치: 문제 발생 과정 다이어그램]**
 *2개의 Airflow와 1개의 K8s 클러스터 구조*
@@ -43,16 +43,16 @@ alpha에서 이 Pod는 RUNNING 상태로 전환된다. 그 뒤로 production 환
 ### Production 환경에서 Pod 생성
 
 ```text
-2023-03-08T09:14:46.342+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-rzwroznv with labels: {‘dag_id’: ‘export-to-skt-searchcell’, ‘task_id’: ‘export_action_log’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
+2023-03-08T09:14:46.342+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-rzwroznv with labels: {‘dag_id’: ‘foo-bar-dag-id’, ‘task_id’: ‘foo-bar-task-id’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
 ```
 이때 production의 Pod의 레이블은 다음과 같다:
-```json
+```JSON
 {
-'dag_id': 'export-to-skt-searchcell', 
-'task_id': 'export_action_log', 
-'run_id': 'scheduled__2023-03-08T0130000000-77fa57adf', 
-'kubernetes_pod_operator': 'True', 
-'try_number': '1'
+ "dag_id": "foo-bar-dag-id", 
+ "task_id": "foo-bar-task-id", 
+ "run_id": "scheduled__2023-03-08T0130000000-77fa57adf", 
+ "kubernetes_pod_operator": "True", 
+ "try_number": "1"
 }
 ```
 
