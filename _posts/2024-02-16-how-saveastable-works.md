@@ -17,7 +17,7 @@ Apache Spark에서 `saveAsTable()` 메소드는 DataFrame을 Hive 테이블로 �
 
 운영 중인 데이터 파이프라인에서 다음과 같이 관리형 테이블을 생성하고 있었다:
 ```scala
-df.write.saveAsTable(name=“my_database.my_table”, format=“parquet”, mode=“overwrite”)
+df.write.saveAsTable(name="my_database.my_table", format="parquet", mode="overwrite")
 ```
 *DataFrame을 메타스토어의 테이블로 저장*
 
@@ -32,7 +32,7 @@ df.write.saveAsTable(name=“my_database.my_table”, format=“parquet”, 
 
 처음에는 SparkSQL을 사용하여 테이블 속성을 변경하려고 시도했다:
 ```sql
-ALTER TABLE my_database.my_table SET TBLPROPERTIES(‘EXTERNAL’=‘true’)
+ALTER TABLE my_database.my_table SET TBLPROPERTIES('EXTERNAL'='true')
 ```
 
 하지만 이 명령은 실행되지 않았다. **SparkSQL은 보안상의 이유로 관리형 테이블을 외부 테이블로 직접 변환하는 것을 허용하지 않는다.** 이는 데이터 소유권과 생명주기 관리의 책임 소재가 명확히 구분되기 때문이다.
@@ -45,7 +45,7 @@ ALTER TABLE my_database.my_table SET TBLPROPERTIES(‘EXTERNAL’=‘true’)
 또 다른 방법으로는 HiveQL을 직접 사용하는 것이다:
 ```sql
 -– Hive CLI 또는 Beeline에서 실행
-ALTER TABLE my_database.my_table SET TBLPROPERTIES(‘EXTERNAL’=‘TRUE’);
+ALTER TABLE my_database.my_table SET TBLPROPERTIES('EXTERNAL'='true')
 ```
 
 ## 문제 발생: LOCATION_ALREADY_EXISTS 에러
@@ -245,32 +245,32 @@ aws s3 rm s3://my_s3_bucket/databases/my_database/my_table/ –recursive
 
 그 후 saveAsTable() 실행
 ```scala
-df.write.saveAsTable(name=“my_database.my_table”, format=“parquet”, mode=“overwrite”)
+df.write.saveAsTable(name="my_database.my_table", format="parquet", mode="overwrite")
 ```
 
 ### 2. 외부 테이블로 유지
 
 명시적으로 외부 테이블로 생성
 ```scala
-df.write.option(“path”, “s3://my_s3_bucket/databases/my_database/my_table/”) 
-.saveAsTable(name=“my_database.my_table”, format=“parquet”, mode=“overwrite”)
+df.write.option("path", "s3://my_s3_bucket/databases/my_database/my_table/")
+  .saveAsTable(name="my_database.my_table", format="parquet", mode="overwrite")
 ```
 
 ### 3. 새로운 테이블명 사용
 다른 이름으로 테이블 생성
 ```scala
-df.write.saveAsTable(name=“my_database.my_table_v2”, format=“parquet”, mode=“overwrite”)
+df.write.saveAsTable(name="my_database.my_table_v2", format="parquet", mode="overwrite")
 ```
 
 ### 4. 임시 테이블을 통한 우회 방법
 
 ```scala
 // 임시 테이블로 생성 후 RENAME
-df.write.saveAsTable(name=“my_database.my_table_temp”, format=“parquet”, mode=“overwrite”)
+df.write.saveAsTable(name="my_database.my_table_temp", format="parquet", mode="overwrite")
 ```
 SQL로 테이블명 변경
 ```sql
-spark.sql(“ALTER TABLE my_database.my_table_temp RENAME TO my_database.my_table”)
+ALTER TABLE my_database.my_table_temp RENAME TO my_database.my_table
 ```
 
 
@@ -280,23 +280,24 @@ spark.sql(“ALTER TABLE my_database.my_table_temp RENAME TO my_database.my_tabl
 
 처음부터 외부 테이블로 생성하여 일관성 유지
 ```scala
-df.write.option(“path”, f”{warehouse_location}/{database}/{table}/”) 
-.saveAsTable( name=f”{database}.{table}”, format=“parquet”, mode=“overwrite”)
+df.write.option("path", s"${warehouse_location}/${database}/${table}/")
+  .saveAsTable(name=s"${database}.${table}", format="parquet", mode="overwrite")
 ```
 
 ### 2. 모니터링 및 알림
 
 ```python
 def safe_save_as_table(df, table_name, **options):
-"""안전한 saveAsTable wrapper 함수"""
-  try:
-    df.write.saveAsTable(name=table_name, **options)
-    print(f”테이블 {table_name} 저장 완료”)
-  except Exception as e:
-    if “LOCATION_ALREADY_EXISTS” in str(e):
-      print(f”경고: {table_name} 위치에 기존 데이터가 존재합니다.”)
-      print(“해결 방안: 1) 기존 데이터 삭제 2) 외부 테이블로 생성 3) 다른 테이블명 사용”)
-      raise e
+    """안전한 saveAsTable wrapper 함수"""
+    try:
+        df.write.saveAsTable(name=table_name, **options)
+        print(f"테이블 {table_name} 저장 완료")
+    except Exception as e:
+        if "LOCATION_ALREADY_EXISTS" in str(e):
+            print(f"경고: {table_name} 위치에 기존 데이터가 존재합니다.")
+            print("해결 방안: 1) 기존 데이터 삭제 2) 외부 테이블로 생성 3) 다른 테이블명 사용")
+        raise e
+
 ```
 
 ## 결론과 교훈
