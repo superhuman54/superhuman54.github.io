@@ -179,8 +179,7 @@ production Pod는 최종 실패로 남지만, 한국시각 18시 34분(작업 �
 - **apache-airflow-providers-cncf-kubernetes 8.0.1rc1** 버전에서 패치 완료
 
 **관련 링크:**
-- [GitHub Issue: Pod cleanup fails when multiple pods with same labels exist](https://github.com/apache/airflow/issues/29847)
-- [GitHub PR: Fix cleanup logic for duplicate pod scenarios](https://github.com/apache/airflow/pull/29863)
+- [GitHub PR: Fix cleanup logic for duplicate pod scenarios](https://github.com/apache/airflow/pull/37671)
 - [Apache Airflow Release Notes - CNCF Kubernetes Provider 8.0.1](https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/8.0.1/changelog.html)
 
 **권장사항:**
