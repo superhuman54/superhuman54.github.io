@@ -73,7 +73,7 @@ Old 영역이 계단식으로 점유되는 현상은 경험상 다음 두 가지
 1. **메모리 누수**
 2. **애플리케이션 캐시**
 
-이제 힙덤프를 상세히 분석해볼 시간이었다.
+이제 힙덤프를 상세히 분석해본다.
 
 ### 힙덤프 분석 환경 구성
 
@@ -86,6 +86,7 @@ Old 영역이 계단식으로 점유되는 현상은 경험상 다음 두 가지
 
 ### MAT 분석 결과
 
+![Leak Suspects Overview](https://github.com/user-attachments/assets/22104829-76b9-410a-a225-9220825c9295)
 ![MAT Analysis2](https://github.com/user-attachments/assets/ecaa29be-a15d-48bf-bbc4-1d60caa6d200)
 *154,554개의 `org.apache.hadoop.conf.Configuration` 인스턴스가 메모리의 62.15%를 점유하고 있음을 보여주는 MAT 분석 결과*
 
