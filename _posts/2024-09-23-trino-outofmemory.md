@@ -86,12 +86,6 @@ Old 영역이 계단식으로 점유되는 현상은 경험상 다음 두 가지
 
 > 💡 **큰 힙덤프 분석은 MAT(Eclipse Memory Analyzer)를 사용한다.**
 
-```text
-큰 힙덤프 분석은 MAT(eclipse memory analyzer)를 사용한다.
-힙덤프 큰 메모리의 장비 필요
-MAT 다운로드 후, 압축을 푼 후 ParseHeapDump.sh 스크립트 마지막에 `-vmargs -Xmx80g -XX:-UseGCOverheadLimit` 옵션을 추가 (힙덤프 크기만큼 메모리 설정)
-분석을 통해서 나온 인덱스 파일을 로컬 장비로 옮긴 후, MAT으로 열기
-```
 *힙덤프 분석을 위한 대용량 메모리 장비 설정 및 MAT 사용 방법*
 
 - MAT 다운로드 후, 압축을 푼 후 `ParseHeapDump.sh` 스크립트 마지막에 `-vmargs -Xmx80g -XX:-UseGCOverheadLimit` 옵션을 추가(힙덤프 크기만큼 메모리 설정)
@@ -104,10 +98,10 @@ MAT 다운로드 후, 압축을 푼 후 ParseHeapDump.sh 스크립트 마지막�
 
 MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 
-- **org.apache.hadoop.conf.Configuration** 인스턴스가 메모리 점유의 주된 원인
+- **`org.apache.hadoop.conf.Configuration`** 인스턴스가 메모리 점유의 주된 원인
 - **인스턴스 개수**: 154,554개
 - **메모리 점유**: 16,135,726,184 bytes (약 15.4 GB, 62.15%)
-- **클래스 로더**: io.trino.server.PluginClassLoader
+- **클래스 로더**: `io.trino.server.PluginClassLoader`
 
 근본 원인은 이 Configuration 객체들이 `java.util.HashMap$Node[]`에 의해 참조되고 있으며, 이 HashMap은 `org.apache.hadoop.fs.FileSystem$Cache` 객체가 참조하고 있다는 점이었다.
 
@@ -116,7 +110,7 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 - **참조 객체**: `com.amazon.ws.emr.hadoop.fs.EmrFileSystem`
 - **스레드 로컬 메모리**: 648,576 bytes (무시할 수 있는 크기)
 
-정리하면, `FileSystem$Cache` 객체가 HashMap을 통해 수많은 Configuration 객체들을 참조하고 있어 메모리 누수가 발생하고 있었다.
+정리하면, `FileSystem$Cache` 객체가 HashMap을 통해 수많은 `Configuration` 객체들을 참조하고 있어 메모리 누수가 발생하고 있었다.
 
 ## 문제의 근본 원인 추적
 
@@ -149,6 +143,7 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 *파일시스템과 URI 스킴 매핑을 보여주는 Hadoop core-site.xml 설정 파일*
 
 파일 경로(URI)의 스킴이 파일시스템과 매핑되어 있는 유일한 식별자이기 때문에 파일 경로로 파일시스템을 식별할 수 있다. Amazon S3를 사용하므로 `s3://bucket_name`으로 시작하며, 이는 `EmrFileSystem`과 매핑되어 있다.
+
 ![FileSystem](https://github.com/user-attachments/assets/2c9904e0-7e6e-446a-8933-97e03ee68e2a)
 
 ### FileSystem.get() 메서드의 캐시 메커니즘
@@ -173,12 +168,12 @@ URI로부터 파일시스템을 가져올 때 캐시를 사용한다. `fs.$SCHEM
 동일한 테이블의 파일들은 모두 동일한 키를 가져야 하지만, 여기에 치명적인 함정이 있었다.
 
 ![UserGroupInformation.hashcode()](https://github.com/user-attachments/assets/3f529f64-f48e-4622-bcde-e41ca8c4b8fe)
-*System.identityHashCode의 HotSpot VM 구현과 관련된 설명*
+*UserGroupInformation.hashcode() 구현*
 
 `UserGroupInformation` 객체의 `hashCode()` 구현이 `System.identityHashCode()`에 의존하고 있는데, HotSpot의 `System.identityHashCode()`는 **호출할 때마다 다른 값을 반환한다**. 
 
-- ![The Java System::identityHashCode method](https://www.objectos.com.br/blog/the-java-system-identity-hash-code-method.html), HotSpot VM의 해시코드 동작 설명
-- ![How does the default hashCode() work?](https://varoa.net/jvm/java/openjdk/biased-locking/2017/01/30/hashCode.html)
+- [The Java System::identityHashCode method](https://www.objectos.com.br/blog/the-java-system-identity-hash-code-method.html), HotSpot VM의 해시코드 동작 설명
+- [How does the default hashCode() work?](https://varoa.net/jvm/java/openjdk/biased-locking/2017/01/30/hashCode.html)
 
 결국 파일마다 다른 키 값을 생성하는 것과 마찬가지이므로, 파일 하나당 캐시의 레코드를 하나씩 점유하게 되고 메모리 누수로 이어진다.
 
@@ -193,11 +188,11 @@ URI로부터 파일시스템을 가져올 때 캐시를 사용한다. `fs.$SCHEM
 문제를 일으키는 실제 쿼리를 확인했다:
 
 ```sql
-SELECT 서비스_이름, 아이피, level, count(*) AS log_count
-FROM 로그_테이블
-WHERE yyyymmddhh = ? AND “timestamp” >= ? AND “timestamp” < ? AND 서비스_이름 like ‘server-%’
-GROUP BY 서비스_이름, 아이피, 로그레벨
-ORDER BY 서비스_이름, 아이피, 로그레벨, log_count
+SELECT service_name, ip, level, count(*) AS log_count
+FROM log_table
+WHERE yyyymmddhh = ? AND “timestamp” >= ? AND “timestamp” < ? AND service_name like ‘server-%’
+GROUP BY service_name, ip, level
+ORDER BY service_name, ip, level, log_count
 ```
 
 이 쿼리는:
@@ -210,7 +205,7 @@ ORDER BY 서비스_이름, 아이피, 로그레벨, log_count
 
 ### Hadoop의 오래된 이슈
 
-![key of FileSystem inner class Cache contains UGI.hascode which uses the default hascode method, leading to the memory leak with Proxy Users](https://issues.apache.org/jira/browse/HADOOP-12707)
+[key of FileSystem inner class Cache contains UGI.hascode which uses the default hascode method, leading to the memory leak with Proxy Users](https://issues.apache.org/jira/browse/HADOOP-12707)
 *Hadoop 커뮤니티에서 오래전에 보고되었지만 설계상 이유로 수정되지 않은 이슈*
 
 결국 이것은 Trino 문제가 아닌 Hadoop의 이슈였다. 오래전에 이슈로 보고되었지만 설계상의 이유로 수정되지 않았다. 많은 Hadoop 에코시스템 서비스들(Spark, Hive 등)이 여전히 메모리 누수를 일으킬 수 있다.
