@@ -1,5 +1,5 @@
 ---
-title: "Trino 메모리 누수 문제 해결기: Hadoop FileSystem Cache의 함정"
+title: "Trino 메모리 누수: Hadoop FileSystem Cache의 함정"
 date: 2024-09-23
 categories: [Trino, Hadoop, Performance]
 tags: [trino, hadoop, oom, memory-leak, filesystem-cache, troubleshooting]
@@ -168,7 +168,7 @@ URI로부터 파일시스템을 가져올 때 캐시를 사용한다. `fs.$SCHEM
 동일한 테이블의 파일들은 모두 동일한 키를 가져야 하지만, 여기에 치명적인 함정이 있었다.
 
 ![UserGroupInformation.hashcode()](https://github.com/user-attachments/assets/3f529f64-f48e-4622-bcde-e41ca8c4b8fe)
-*UserGroupInformation.hashcode() 구현*
+*`UserGroupInformation.hashcode()` 구현*
 
 `UserGroupInformation` 객체의 `hashCode()` 구현이 `System.identityHashCode()`에 의존하고 있는데, HotSpot의 `System.identityHashCode()`는 **호출할 때마다 다른 값을 반환한다**. 
 
@@ -189,8 +189,8 @@ URI로부터 파일시스템을 가져올 때 캐시를 사용한다. `fs.$SCHEM
 
 ```sql
 SELECT service_name, ip, level, count(*) AS log_count
-FROM log_table
-WHERE yyyymmddhh = ? AND “timestamp” >= ? AND “timestamp” < ? AND service_name like ‘server-%’
+FROM log_table -- CSV 포맷의 로그 테이블
+WHERE yyyymmddhh = ? AND timestamp >= ? AND timestamp < ? AND service_name like 'server-%'
 GROUP BY service_name, ip, level
 ORDER BY service_name, ip, level, log_count
 ```
