@@ -70,11 +70,7 @@ Presto에서 Trino로 전환한 후 얼마 지나지 않아 예상치 못한 문
 Grafana를 통해 워커의 Old 영역이 매우 규칙적이고 점진적으로 점유되는 것을 관찰할 수 있었다. 결국 JVM은 OOM으로 인해 종료된다.
 
 ![G1 Old Gen](https://github.com/user-attachments/assets/c4614826-7d36-4658-ac9d-c022f85d8a8c)
-*Old 영역이 계단식으로 점유되는 현상과 OOM으로 인한 JVM 종료 시점(이빨 빠진 영역)*
-
-
-
-*이빨 빠진 영역은 JVM이 OOM으로 종료되고 힙덤프를 생성하는 시간*
+*Old 영역이 계단식으로 점유되는 현상과 OOM으로 인한 JVM 종료 시점(이빨 빠진 영역은 JVM이 OOM으로 종료되고 힙덤프를 생성하는 시간)*
 
 Old 영역이 계단식으로 점유되는 현상은 경험상 다음 두 가지 원인으로 추측할 수 있었다:
 1. **메모리 누수**
@@ -82,16 +78,16 @@ Old 영역이 계단식으로 점유되는 현상은 경험상 다음 두 가지
 
 이제 힙덤프를 상세히 분석해볼 시간이었다.
 
-### 힙덤프 분석을 위한 준비
+### 힙덤프 분석 환경 구성
 
 > 💡 **큰 힙덤프 분석은 MAT(Eclipse Memory Analyzer)를 사용한다.**
 
-*힙덤프 분석을 위한 대용량 메모리 장비 설정 및 MAT 사용 방법*
+*힙덤프 분석을 위한 대용량 메모리 장비 설정 및 MAT 설정 방법*
 
 - MAT 다운로드 후, 압축을 푼 후 `ParseHeapDump.sh` 스크립트 마지막에 `-vmargs -Xmx80g -XX:-UseGCOverheadLimit` 옵션을 추가(힙덤프 크기만큼 메모리 설정)
 - 분석을 통해 생성된 인덱스 파일을 로컬 장비로 옮긴 후, MAT으로 열기
 
-### 범인 발견: Hadoop Configuration 객체들
+### MAT 분석 결과
 
 ![MAT Analysis2](https://github.com/user-attachments/assets/ecaa29be-a15d-48bf-bbc4-1d60caa6d200)
 *154,554개의 `org.apache.hadoop.conf.Configuration` 인스턴스가 메모리의 62.15%를 점유하고 있음을 보여주는 MAT 분석 결과*
@@ -119,7 +115,7 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 ![](https://github.com/user-attachments/assets/051f7509-5618-4027-905c-cecb358fbf1d)
 *Split을 Page로 변환하는 과정에서 발생한 OutOfMemory 스택트레이스*
 
-스택트레이스 분석을 통해 다음의 호출 순서를 파악했다:
+스택트레이스는 Split으로부터 스트림을 열어 Page를 생성하는 단계에서 문제가 발생했고, 테이블 데이터를 읽는 과정에서 에러가 발생한것으로 추측할수있다. 주요 호출 스택은 다음과 같다:
 
 - **93번 라인**: `io.trino.operator.ScanFilterAndProjectOperator$SplitToPages.process()` - Split을 Page로 생성
 - **87번 라인**: `io.trino.plugin.hive.line.LinePageSourceFactory.createPageSource()` - 텍스트 파일을 읽어서 Reader 생성
@@ -129,20 +125,22 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 
 ### 코드 레벨 분석
 
+이제 문제의 발생 지점을 찾았으니, Split으로 Page를 생성하는 `LinePageSourceFactory.createPageSource()` 메서드부터 자세히 살펴보자.
+
 ![LinePageSourceFactory](https://github.com/user-attachments/assets/415c0837-e3db-4974-8ab7-1e0b4aa9b346)
 *LineReader를 생성하는 `LinePageSourceFactory.createLineReader()` 메서드 코드*
 
-`LinePageSourceFactory.createPageSource()`에서는 입력파일을 받아 `lineReader`를 생성한다. `TextLineReaderFactory.createLineReader()`에서는 입력파일의 스트림을 생성한다.
+`LinePageSourceFactory.createPageSource()`에서는 입력파일(`inputFile`)을 받아 `lineReader`를 생성한다. `TextLineReaderFactory.createLineReader()`에서는 입력파일의 스트림을 생성한다.
 
 ![HdfsInputFile](https://github.com/user-attachments/assets/2c4b4d7f-6703-4fd6-8aa4-735b798db3b2)
 *HDFS 파일시스템에서 파일을 여는 `HdfsInputFile.openFile()` 메서드*
 
-`HdfsInputFile.openFile()`에서는 HDFS 파일시스템에서 입력파일을 연다. 파일을 열 때 파일시스템 객체가 필요하며, 이는 `environment.getFileSystem()`에서 파일 경로를 통해 가져온다.
+`HdfsInputFile.openFile()`에서는 HDFS 파일시스템에서 입력파일을 연다. 파일을 열 때 파일시스템 객체가 필요하며, 이 파일시스템 객체는 `environment.getFileSystem()`에 인자로 전달하는 파일 경로(Path 객체)로부터 가져올수 있다.
 
 ![core-site.xml](https://github.com/user-attachments/assets/caed0e45-abca-49e6-9415-8d35a930ed5b)
 *파일시스템과 URI 스킴 매핑을 보여주는 Hadoop core-site.xml 설정 파일*
 
-파일 경로(URI)의 스킴이 파일시스템과 매핑되어 있는 유일한 식별자이기 때문에 파일 경로로 파일시스템을 식별할 수 있다. Amazon S3를 사용하므로 `s3://bucket_name`으로 시작하며, 이는 `EmrFileSystem`과 매핑되어 있다.
+파일 경로로 파일시스템을 식별할 수 있는 이유는, 파일 경로(URI)의 스킴(scheme)이 파일시스템과 매핑되어있는 유일한 식별자기 때문이다. 우리는 Amazon S3를 의존하기 때문에 `s3://bucket_name`으로 시작할것이고, 이는 EmrFileSystem과 매핑되어있다.
 
 ![FileSystem](https://github.com/user-attachments/assets/2c9904e0-7e6e-446a-8933-97e03ee68e2a)
 
@@ -151,26 +149,32 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 ![FileSystem.get()](https://github.com/user-attachments/assets/8e584170-df58-4c77-8f13-ba49b18863a2)
 *URI로부터 파일시스템을 가져오는 `FileSystem.get()` 캐시 메커니즘 구현*
 
-URI로부터 파일시스템을 가져올 때 캐시를 사용한다. `fs.$SCHEME.impl.disable.cache`의 기본값이 `false`이므로 파일시스템을 `CACHE`로부터 조회한다. 테이블을 스캔할 때 스캔되는 파일 하나당 캐시를 한 번 조회하므로, 이 `get()` 함수는 쿼리가 탐색하는 파일의 개수만큼 호출된다.
+인자로 전달하는 `path` 객체로부터 파일시스템을 가져온다. URI로부터 파일시스템을 가져올때 캐시를 사용하며, 캐시를 사용하는 이유는 `fs.$SCHEME.impl`의 설정에 정의된 클래스를 동적 로딩하는 과정이 꽤 비싼 연산이기 때문에 캐시를 사용하는 것으로 추측한다.
+
+`fs.$SCHEME.impl.disable.cache`의 기본값이 `false`이므로 파일시스템을 `CACHE`로부터 조회한다. 여기서 테이블을 스캔할때, 스캔되는 파일 하나당 캐시를 한번 조회한다. 그러므로 이 `get()` 함수는 쿼리가 탐색하는 파일의 갯수만큼 호출된다.
 
 ### 캐시 키의 치명적 결함
 
 ![Cache.Key](https://github.com/user-attachments/assets/b9391faa-ff92-4ce7-ae5a-a38594faeb1b)
 *캐시 조회를 위한 FileSystem Cache Key 클래스의 구현체*
 
-`CACHE`를 조회하기 위해 키 객체를 생성하며, 파일 하나당 하나의 키가 생성된다. Key 클래스의 멤버 변수들:
+`CACHE`를 조회하기 위해 키 객체를 생성한다. 이것 역시 파일 하나당 하나의 키가 생성된다. 동일한 테이블 데이터셋을 구성하는 각 파일에 대한 `Key` 객체의 멤버 변수 값을 예상해본다:
 
 - **scheme**: `s3`
 - **authority**: S3 버킷 이름 (테이블의 모든 파일이 동일한 버킷)
 - **ugi**: `UserGroupInformation.getCurrentUser()`
 - **unique**: `0`
 
-동일한 테이블의 파일들은 모두 동일한 키를 가져야 하지만, 여기에 치명적인 함정이 있었다.
+`Key`의 생성자에 넘어오는 인자값 `uri`는 파일마다 다르고, `conf`는 동일하지만, 테이블의 파일들에 대한 멤버 변수 모두 동일한 값이기 때문에 동일한 키를 가질 것이라고 예상한다.
+
+### 문제의 핵심: UserGroupInformation hashCode
+
+이 Cache 클래스는 HashMap을 사용하여 캐시를 구현했고, HashMap은 `equals()`, `hashcode()`를 사용하여 키의 중복을 검사한다. `Key` 클래스의 `hashcode()`는 멤버 변수의 해시코드값을 조합하여 반환하도록 오버라이드되었고, 그 중에서 `ugi` 멤버 변수의 `hashcode()`는 다음과 같다.
 
 ![UserGroupInformation.hashcode()](https://github.com/user-attachments/assets/3f529f64-f48e-4622-bcde-e41ca8c4b8fe)
 *`UserGroupInformation.hashcode()` 구현*
 
-`UserGroupInformation` 객체의 `hashCode()` 구현이 `System.identityHashCode()`에 의존하고 있는데, HotSpot의 `System.identityHashCode()`는 **호출할 때마다 다른 값을 반환한다**. 
+`System.identityHashCode()`는 VM에 따라 다르게 구현되어있다. Trino가 사용하는 Java Correto 17은 HotSpot VM(Open JDK)의 구현체다. HotSpot의 `System.identityHashCode()`은 호출할때마다 다른 값을 반환한다.
 
 - [The Java System::identityHashCode method](https://www.objectos.com.br/blog/the-java-system-identity-hash-code-method.html), HotSpot VM의 해시코드 동작 설명
 - [How does the default hashCode() work?](https://varoa.net/jvm/java/openjdk/biased-locking/2017/01/30/hashCode.html)
