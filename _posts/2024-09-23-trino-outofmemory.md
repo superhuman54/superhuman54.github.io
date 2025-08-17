@@ -17,23 +17,20 @@ Presto에서 Trino로 전환한 후 얼마 지나지 않아 예상치 못한 문
 
 ### 첫 번째 신호: 워커 노드들의 연쇄 셧다운
 
-문제는 조용히 시작되었다. 처음에는 가끔 워커 노드 하나가 응답하지 않는 정도였지만, 점차 여러 노드가 동시에 셧다운되는 빈도가 늘어났다. 로그를 확인해보니 명확한 원인이 보였다: `java.lang.OutOfMemoryError: Java heap space`.
-
-워커 노드들의 JVM 설정을 확인해보았다:
+Trino 워커들이 워크로드를 처리할 때 OOM을 발생시키고 있었다. 다음은 Trino 워커의 JVM 옵션들이다.
 
 ![Trino JVM 설정](https://github.com/user-attachments/assets/2f4ba3c1-5e31-4d51-874f-b02dd0b06b81)
 *Trino 워커의 JVM 옵션 설정 - jvm.config 파일*
 
-
 클러스터 불안정의 원인이 명확히 OOM이었기 때문에, 워커들의 JVM 옵션에 `-XX:+HeapDumpOnOutOfMemoryError` 옵션을 활성화했다. 이제 OOM 발생 시 Trino 작업 디렉토리에 힙덤프가 생성된다.
-
-### 힙덤프 생성의 딜레마
-
-하지만 새로운 문제가 발생했다. 힙덤프를 생성하는 과정에서 또 다른 장애가 일어난 것이다.
 
 ![Heam Dumping](https://github.com/user-attachments/assets/bd7568fc-ec23-4824-9d0f-1f6e5873e08d)
 
-힙덤프를 시작하는 동안 노드는 out of service 상태가 된다. 더 큰 문제는 Trino 작업 디렉토리가 `/mnt`에 마운트된 EBS 내에 있어서, EBS 용량이 힙덤프보다 작을 경우 힙덤프 하나만으로도 디스크 사용률이 100%에 도달한다는 점이었다.
+힙덤프를 시작한다. 이 과정동안 이 노드는 out of service 상태가 된다.
+
+### 힙덤프 생성의 딜레마
+
+하지만 새로운 문제가 발생했다. 힙덤프를 생성하는 과정에서 또 다른 장애가 일어난 것이다. Trino 워킹디렉토리가 `/mnt`에 마운트된 EBS 내에 있어서, EBS 용량이 힙덤프보다 작을 경우 힙덤프 하나만으로도 디스크 사용률이 100%에 도달하게 된다. 예를 들어, 30GiB EBS 디스크가 마운트된 디렉토리에 128GiB 메모리 사양의 힙덤프가 저장되면 용량 부족으로 Trino 서버가 재시작되지 못한다.
 
 ```text
 ...
