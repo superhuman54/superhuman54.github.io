@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Amazon MWAA에서 Kubernetes Pod 회수 실패 문제 해결기"
+title: "Amazon MWAA에서 Kubernetes Pod 회수 실패 문제"
 date: 2023-02-10
 categories: [Airflow, Kubernetes, AWS]
 tags: [mwaa, airflow, kubernetes, pod, troubleshooting, celery, eks]

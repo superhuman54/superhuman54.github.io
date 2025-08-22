@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Spring MVC Redirect에서 OutOfMemory 문제 해결하기"
+title: "Spring MVC Redirect OutOfMemory 문제"
 date: 2020-08-10
 categories: [Spring]
 tags: [spring, mvc, redirect, oom, troubleshooting]

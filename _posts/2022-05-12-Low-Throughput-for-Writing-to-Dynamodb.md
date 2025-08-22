@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Spark에서 DynamoDB로 데이터 쓰기 성능 저하 문제 해결기"
+title: "Spark에서 DynamoDB 쓰기 성능 저하 문제"
 date: 2022-05-12
 categories: [Spark, DynamoDB, AWS]
 tags: [spark, dynamodb, troubleshooting, performance, aws, emr]

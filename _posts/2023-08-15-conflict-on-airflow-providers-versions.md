@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Airflow Provider 패키지 버전 충돌 해결기"
+title: "Airflow Provider 패키지 버전 충돌 문제"
 date: 2023-08-15
 categories: [Airflow, Python]
 tags: [airflow, provider, dependency, kubernetes, troubleshooting, pip]

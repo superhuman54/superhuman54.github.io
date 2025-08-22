@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "공유 Kubernetes 클러스터에서 발생한 Airflow Pod 중복 생성 및 회수 실패 해결기"
+title: "공유 Kubernetes 클러스터에서 Airflow Pod 중복 생성 및 회수 실패 문제"
 date: 2023-03-13
 categories: [Airflow, Kubernetes]
 tags: [airflow, kubernetes, pod, duplicate, cleanup, troubleshooting]

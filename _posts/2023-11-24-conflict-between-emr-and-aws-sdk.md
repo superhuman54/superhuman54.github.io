@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Amazon EMR 6.12와 AWS Java SDK 충돌 문제 해결기"
+title: "Amazon EMR 6.12와 AWS Java SDK 충돌 문제"
 date: 2023-11-24
 categories: [AWS, Spark, EMR]
 tags: [aws, emr, spark, java-sdk, dependency, troubleshooting]
