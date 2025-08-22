@@ -51,8 +51,8 @@ ALTER TABLE my_database.my_table SET TBLPROPERTIES('EXTERNAL'='true')
 
 외부 테이블로 전환 후, 동일한 DataFrame을 다시 `saveAsTable()`로 저장하려고 하면 다음과 같은 에러가 발생했다:
 ```text
-org.apache.spark.SparkRuntimeException: [LOCATION_ALREADY_EXISTS] Cannot name the managed table as `spark_catalog`.`my_database`.`my_table`, as its associated location ‘s3://my_s3_bucket/databases/my_database/my_table’ already exists.
-Please pick a different table name, or remove the existing location first.
+org.apache.spark.SparkRuntimeException: [LOCATION_ALREADY_EXISTS]Cannot name the managed table as `spark_catalog`.`my_database`.`my_table`,as its associated location ‘s3://my_s3_bucket/databases/my_database/my_table’already exists.
+Please pick a different table name, or remove the existinglocation first.
   at org.apache.spark.sql.errors.QueryExecutionErrors$.locationAlreadyExists(QueryExecutionErrors.scala:2793)
   at org.apache.spark.sql.catalyst.catalog.SessionCatalog.validateTableLocation(SessionCatalog.scala:414)
   at org.apache.spark.sql.execution.command.CreateDataSourceTableAsSelectCommand.run(createDataSourceTables.scala:176)
@@ -101,7 +101,6 @@ Please pick a different table name, or remove the existing location first.
             throw QueryCompilationErrors.cannotOverwriteTableThatIsBeingReadFromError(tableName)
           case _ => // OK
         }
-
         // 기존 테이블을 제거한다.
         catalog.dropTable(qualifiedIdent, ignoreIfNotExists = true, purge = false)
         createTable(qualifiedIdent)
