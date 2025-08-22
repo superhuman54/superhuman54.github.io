@@ -111,6 +111,105 @@ private boolean isDescending(PrimitiveComparator<Binary> comparator) {
   <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
 </div>
 
+## Column Index 크기 제한과 BoundaryOrder 생성
+
+### 1. Column Index 크기 제한 메커니즘
+
+Parquet에서 Column Index의 크기가 설정된 제한을 초과하면 `BoundaryOrder`가 포함된 Column Index 자체가 생성되지 않는다:
+
+```java
+public void endColumn() throws IOException {
+  state = state.endColumn();
+  LOG.debug("{}: end column", out.getPos());
+  
+  // Column Index 크기 체크
+  if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX_STATS_SIZE) {
+    currentColumnIndexes.add(null);  // Column Index 생성 안함
+  } else {
+    currentColumnIndexes.add(columnIndexBuilder.build());  // Column Index 생성 (BoundaryOrder 포함)
+  }
+  // ...
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java</span>
+</div>
+
+### 2. MAX_STATS_SIZE 제한
+
+```java
+public static final int MAX_STATS_SIZE = 4096;  // 4KB
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java</span>
+</div>
+
+### 3. 크기 계산 방식
+
+`getMinMaxSize()`는 각 페이지의 min/max 값들의 총 크기를 계산한다:
+
+```java
+// IntColumnIndexBuilder의 경우
+public long getMinMaxSize() {
+  return (long) minValues.size() * Integer.BYTES + (long) maxValues.size() * Integer.BYTES;
+}
+
+// BinaryColumnIndexBuilder의 경우  
+public long getMinMaxSize() {
+  long minSizesSum = minValues.stream().mapToLong(Binary::length).sum();
+  long maxSizesSum = maxValues.stream().mapToLong(Binary::length).sum();
+  return minSizesSum + maxSizesSum;
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/IntColumnIndexBuilder.java</span>
+</div>
+
+### 4. 실제 예시
+
+**예시 1: Column Index 생성되는 경우**
+
+```
+페이지 수: 10개
+각 페이지 min/max 크기: 200 bytes (Integer 타입)
+총 크기: 10 × 200 = 2,000 bytes
+제한: 10 × 4,096 = 40,960 bytes
+결과: 2,000 < 40,960 → Column Index 생성됨 (BoundaryOrder 포함)
+```
+
+**예시 2: Column Index 생성되지 않는 경우**
+
+```
+페이지 수: 50개
+각 페이지 min/max 크기: 10,000 bytes (매우 긴 String)
+총 크기: 50 × 10,000 = 500,000 bytes
+제한: 50 × 4,096 = 204,800 bytes
+결과: 500,000 > 204,800 → Column Index 생성 안됨 (BoundaryOrder도 없음)
+```
+
+### 5. 영향과 대응 방안
+
+**Column Index가 생성되지 않을 때의 영향:**
+- `BoundaryOrder` 정보 없음
+- Binary Search 기반 필터링 불가능
+- 모든 Row Group을 순차적으로 검사해야 함
+- 성능 저하 발생
+
+**대응 방안:**
+```scala
+// 페이지 크기를 작게 설정하여 페이지 수 줄이기
+spark.conf.set("parquet.page.size", "1MB")
+
+// Row Group 크기를 조정하여 페이지 수 제어
+spark.conf.set("parquet.block.size", "50MB")
+
+// String 컬럼의 경우 길이 제한 고려
+val truncatedDF = df.withColumn("long_string", substring(col("long_string"), 1, 100))
+```
+
 ## ASCENDING 정렬된 Row Group에서 Binary Search
 
 쿼리 엔진은 ASCENDING 정렬된 Row Group에서 Binary Search를 수행할 때, 이미 정렬된 데이터임을 전제로 한다. 이 가정 하에서 효율적인 스킵이 가능하다.
@@ -335,5 +434,6 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 3. **성능 향상**: O(n) → O(log n) 시간 복잡도 개선
 4. **쿼리 엔진 가정**: 정렬된 데이터를 전제로 Binary Search 수행
 5. **실용적 적용**: Spark에서 `orderBy()` 후 Parquet 저장
+6. **Column Index 제한**: 크기 제한으로 인한 BoundaryOrder 생성 실패 가능성 고려
 
 정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 크게 개선할 수 있다.
