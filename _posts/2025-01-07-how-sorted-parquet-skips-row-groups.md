@@ -41,13 +41,13 @@ Parquet File
 Parquet에서 컬럼이 정렬되어 있는지 여부는 `BoundaryOrder` enum으로 표현된다:
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java
 public enum BoundaryOrder {
   UNORDERED,    // 정렬되지 않음
   ASCENDING,    // 오름차순 정렬
   DESCENDING    // 내림차순 정렬
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
 
 ## BoundaryOrder 계산 과정
 
@@ -56,7 +56,6 @@ public enum BoundaryOrder {
 `BoundaryOrder`는 Column Index가 생성될 때 자동으로 계산된다:
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java
 public ColumnIndex build() {
   ColumnIndexBase<?> columnIndex = build(type);
   if (columnIndex == null) {
@@ -76,11 +75,11 @@ private BoundaryOrder calculateBoundaryOrder(PrimitiveComparator<Binary> compara
   }
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java*
 
 ### 2. 정렬 판단 로직
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java
 // min[i] <= min[i+1] && max[i] <= max[i+1]
 private boolean isAscending(PrimitiveComparator<Binary> comparator) {
   for (int i = 1, n = pageIndexes.size(); i < n; ++i) {
@@ -101,6 +100,7 @@ private boolean isDescending(PrimitiveComparator<Binary> comparator) {
   return true;
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java*
 
 ## ASCENDING 정렬된 Row Group에서 Binary Search
 
@@ -109,7 +109,6 @@ private boolean isDescending(PrimitiveComparator<Binary> comparator) {
 ### 1. gt (greater than) 연산
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java
 @Override
 OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   int length = comparator.arrayLength();
@@ -129,6 +128,7 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(right, length - 1, comparator::translate);
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
 
 ### 2. 실제 예시
 
@@ -159,7 +159,6 @@ Binary Search 과정:
 ### 3. lt (less than) 연산
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java
 @Override
 OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
   int length = comparator.arrayLength();
@@ -179,6 +178,7 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(0, left, comparator::translate);
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
 
 ## DESCENDING 정렬된 Row Group에서 역순 Binary Search
 
@@ -187,7 +187,6 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
 ### 1. gt (greater than) 연산
 
 ```java
-// parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java
 @Override
 OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   int length = comparator.arrayLength();
@@ -207,6 +206,7 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(0, left, comparator::translate);
 }
 ```
+*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
 
 ### 2. 실제 예시
 
@@ -275,13 +275,13 @@ spark.conf.set("parquet.block.size", "10MB")
 ### 2. Column Index 크기 제한
 
 ```java
-// parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java
 if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX_STATS_SIZE) {
   currentColumnIndexes.add(null);  // Column Index 생성 안함
 } else {
   currentColumnIndexes.add(columnIndexBuilder.build());  // Column Index 생성
 }
 ```
+*parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java*
 
 Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않는다.
 
