@@ -299,7 +299,9 @@ if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX
   currentColumnIndexes.add(columnIndexBuilder.build());  // Column Index 생성
 }
 ```
-*parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java*
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java</span>
+</div>
 
 Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않는다.
 
