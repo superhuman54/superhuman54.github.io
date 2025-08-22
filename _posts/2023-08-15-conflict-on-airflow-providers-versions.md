@@ -1,15 +1,14 @@
 ---
+layout: post
 title: "Airflow Provider 패키지 버전 충돌 해결기"
 date: 2023-08-15
 categories: [Airflow, Python]
 tags: [airflow, provider, dependency, kubernetes, troubleshooting, pip]
 ---
 
-# Airflow Provider 패키지 버전 충돌 해결기
-
-## 문제 발생
-
 Airflow 버전을 업그레이드하는 과정에서 Python Airflow DAG 모듈이 패키지를 import하는 과정에서 다음과 같은 에러가 발생했다.
+
+<!-- more -->
 
 ![Error on Airflow UI](https://github.com/user-attachments/assets/f36ad930-4ac8-4183-8fcd-f050a55a67e1)
 *Kubernetes Executor는 Airflow 2.7.0 이상에서만 지원된다는 에러 메시지*

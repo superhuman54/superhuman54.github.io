@@ -1,15 +1,14 @@
 ---
+layout: post
 title: "Spark에서 DynamoDB로 데이터 쓰기 성능 저하 문제 해결기"
 date: 2022-05-12
 categories: [Spark, DynamoDB, AWS]
 tags: [spark, dynamodb, troubleshooting, performance, aws, emr]
 ---
 
-# Spark에서 DynamoDB로 데이터 쓰기 성능 저하 문제 해결기
+AWS EMR 환경에서 Spark 클러스터가 DynamoDB에 대용량 데이터를 쓰는 배치 작업 중에 심각한 성능 저하 문제가 발생했다. DynamoDB에 프로비저닝된 쓰기 용량 대비 실제 쓰기 처리량이 현저히 떨어지고, 배치 작업 시간이 5배 이상 증가하는 심각한 문제였다.
 
-## 들어가며
-
-AWS EMR 환경에서 Spark 클러스터가 DynamoDB에 대용량 데이터를 쓰는 배치 작업 중에 심각한 성능 저하 문제가 발생했다. 이 글에서는 DynamoDB에 프로비저닝된 쓰기 용량 대비 실제 쓰기 처리량이 현저히 떨어지고, 이에 따른 배치 작업 시간이 5배 이상 증가한 문제를 상세히 분석하고 해결한 과정을 공유한다.
+<!-- more -->
 
 ## 문제 발생
 

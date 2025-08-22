@@ -1,17 +1,14 @@
 ---
+layout: post
 title: "Trino 메모리 누수: Hadoop FileSystem Cache의 함정"
 date: 2024-09-23
 categories: [Trino, Hadoop, Performance]
 tags: [trino, hadoop, oom, memory-leak, filesystem-cache, troubleshooting]
 ---
 
-# Trino 메모리 누수 문제 해결기: Hadoop FileSystem Cache의 함정
-
-## 들어가며
-
 Presto에서 Trino로 전환한 후 얼마 지나지 않아 예상치 못한 문제가 발생했다. 쿼리 요청이 증가하면서 워커 노드들이 메모리 부족(OOM)으로 인해 하나둘씩 셧다운되기 시작했고, 클러스터 전체가 불안정해지는 상황이 벌어진 것이다. 단순한 설정 문제일 것이라고 생각했지만, 문제의 근본 원인은 생각보다 훨씬 깊은 곳에 숨어있었다.
 
-이 글은 그 문제를 해결하는 과정에서 발견한 Hadoop 파일시스템 캐시의 치명적인 설계 결함과, 그것이 어떻게 대규모 메모리 누수로 이어졌는지에 대한 이야기다.
+<!-- more -->
 
 ## 문제 발생
 
@@ -190,9 +187,9 @@ MAT 분석 결과, Suspect 1을 해석하면 다음과 같다:
 문제를 일으키는 실제 쿼리를 확인했다:
 
 ```sql
-SELECT service_name, ip, level, count(*) AS log_count
+SELECTservice_name,ip,level,count(*) AS log_count
 FROM log_table -- CSV 포맷의 로그 테이블
-WHERE yyyymmddhh = ? AND timestamp >= ? AND timestamp < ? AND service_name like 'server-%'
+WHERE yyyymmddhh = ?AND timestamp >= ?AND timestamp < ?AND service_name like 'server-%'
 GROUP BY service_name, ip, level
 ORDER BY service_name, ip, level, log_count
 ```

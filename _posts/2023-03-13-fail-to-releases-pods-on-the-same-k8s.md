@@ -1,17 +1,16 @@
 ---
+layout: post
 title: "공유 Kubernetes 클러스터에서 발생한 Airflow Pod 중복 생성 및 회수 실패 해결기"
 date: 2023-03-13
 categories: [Airflow, Kubernetes]
 tags: [airflow, kubernetes, pod, duplicate, cleanup, troubleshooting]
 ---
 
-# 공유 Kubernetes 클러스터에서 발생한 Airflow Pod 중복 생성 및 회수 실패 해결기
-
-## 문제 상황
-
 소속팀은 2개의 독립적인 Airflow 클러스터가 1개의 K8s 클러스터를 "공유"한다(불필요한 과금 축소를 위해). 2개의 Airflow 클러스터는 다음의 환경에서 각각 운영된다.
 
-- **alpha**: 상용 배포 전, 상용 데이터를 사용하는 테스트 환경
+<!-- more -->
+
+- **alpha**: 상용 배포 전, 상용 데이터를 사용하는 테스트 환경  
 - **production**: 상용 환경
 
 개발자가 alpha에서 마지막 테스트를 진행하고 DAG을 비활성화를 잊어버리고, 그대로 production에 DAG을 동일한 시간에 등록한다. 문제는 각 환경의 DAG_RUN이 동일한 시간에 k8s에 Pod를 생성할때, Pod 회수가 실패하여 찌꺼기 Pod가 남는것이다.
@@ -23,7 +22,7 @@ tags: [airflow, kubernetes, pod, duplicate, cleanup, troubleshooting]
 alpha에서 한국시각 18시 13분 경 다음의 Pod 생성 요청을 한다.
 
 ```text
-2023-03-08T09:13:29.836+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-4devg7t1 with labels: {‘dag_id’: ‘foo-bar-dag-id’, ‘task_id’: ‘foo-bar-task-id’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
+2023-03-08T09:13:29.836+0000 {% raw %}{{kubernetes_pod.py:817}}{% endraw %} INFO - Building pod export-action-log-4devg7t1 with labels: {'dag_id': 'foo-bar-dag-id', 'task_id': 'foo-bar-task-id', 'run_id': 'scheduled__2023-03-08T0130000000-77fa57adf', 'kubernetes_pod_operator': 'True', 'try_number': '1'}
 ```
 이때 Airflow는 Pod에 다음의 레이블을 추가한다:
 ```JSON
@@ -41,7 +40,7 @@ alpha에서 이 Pod는 RUNNING 상태로 전환된다. 그 뒤로 production 환
 ### Production 환경에서 Pod 생성
 
 ```text
-2023-03-08T09:14:46.342+0000 {{kubernetes_pod.py:817}} INFO - Building pod export-action-log-rzwroznv with labels: {‘dag_id’: ‘foo-bar-dag-id’, ‘task_id’: ‘foo-bar-task-id’, ‘run_id’: ‘scheduled__2023-03-08T0130000000-77fa57adf’, ‘kubernetes_pod_operator’: ‘True’, ‘try_number’: ‘1’}
+2023-03-08T09:14:46.342+0000 {% raw %}{{kubernetes_pod.py:817}}{% endraw %} INFO - Building pod export-action-log-rzwroznv with labels: {'dag_id': 'foo-bar-dag-id', 'task_id': 'foo-bar-task-id', 'run_id': 'scheduled__2023-03-08T0130000000-77fa57adf', 'kubernetes_pod_operator': 'True', 'try_number': '1'}
 ```
 이때 production의 Pod의 레이블은 다음과 같다:
 ```JSON
@@ -59,7 +58,7 @@ apache-provider-cncf-kubernetes의 K8s 클라이언트는 Pod을 생성할때(`r
 ## 에러 발생
 
 ```text
-[2023-03-08T09:14:48.148+0000] {{kubernetes_pod.py:872}} ERROR - 'NoneType' object has no attribute 'metadata'
+[2023-03-08T09:14:48.148+0000] {% raw %}{{kubernetes_pod.py:872}}{% endraw %} ERROR - 'NoneType' object has no attribute 'metadata'
 Traceback (most recent call last):
   File "/usr/local/airflow/.local/lib/python3.10/site-packages/airflow/providers/cncf/kubernetes/operators/kubernetes_pod.py", line 528, in execute_sync
     self.remote_pod = self.find_pod(self.pod.metadata.namespace, context=context)
@@ -156,7 +155,7 @@ def cleanup(self, pod: k8s.V1Pod, remote_pod: k8s.V1Pod):
 production Pod는 최종 실패로 남지만, 한국시각 18시 34분(작업 약 11분 경과) 경 태스크 종료와 함께, alpha Pod는 정상 종료된다(회수까지 완료).
 
 ```text
-2023-03-08T09:34:34.236+0000 {{local_task_job.py:159}} INFO - Task exited with return code 0
+2023-03-08T09:34:34.236+0000 {% raw %}{{local_task_job.py:159}}{% endraw %} INFO - Task exited with return code 0
 ```
 
 ## 회고

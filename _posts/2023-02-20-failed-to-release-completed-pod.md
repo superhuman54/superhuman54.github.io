@@ -1,15 +1,14 @@
 ---
+layout: post
 title: "Amazon MWAA에서 Kubernetes Pod 회수 실패 문제 해결기"
 date: 2023-02-10
 categories: [Airflow, Kubernetes, AWS]
 tags: [mwaa, airflow, kubernetes, pod, troubleshooting, celery, eks]
 ---
 
-# Amazon MWAA에서 Kubernetes Pod 회수 실패 문제 해결기
-
-## 문제 상황
-
 운영 환경에서 Amazon MWAA(Managed Workflows for Apache Airflow)를 사용하던 중 심각한 문제가 발생했다. `KubernetesOperator`를 통해 생성된 Pod가 작업 완료 후에도 회수되지 않고 계속 실행 중인 상태로 남아있어 클러스터 리소스를 불필요하게 점유하는 문제였다.
+
+<!-- more -->
 
 ![Not Ready Pod](https://github.com/user-attachments/assets/799617d7-2f20-43c7-ad25-a65760b5a22e)
 *kubectl describe로 확인한 Pod 상태 - NotReady 상태로 표시됨*

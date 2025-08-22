@@ -1,17 +1,14 @@
 ---
+layout: post
 title: "Spring MVC Redirect에서 OutOfMemory 문제 해결하기"
 date: 2020-08-10
 categories: [Spring]
 tags: [spring, mvc, redirect, oom, troubleshooting]
 ---
 
-# Spring MVC Redirect에서 OutOfMemory 문제 해결하기
-
-## 들어가며
-
 운영 환경에서 KMC 본인인증 서비스 운영 중에 OutOfMemory(OOM)이 발생하여 서버가 종료되는 장애가 발생했다. 다행히 무거운 트래픽의 API가 아니고 HA(High Availability)로 구성되어 있어 큰 문제는 없었지만, 즉시 트러블슈팅이 필요했다.
 
-이 문제는 Spring MVC Controller에서 redirect 처리를 할 때 **동적으로 생성되는 URL**을 부적절하게 캐싱하여 발생하는 잘 알려진 이슈였다.
+<!-- more -->
 
 ## 문제 상황
 
