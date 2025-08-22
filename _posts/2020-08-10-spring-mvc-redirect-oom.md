@@ -4,6 +4,9 @@ title: "Spring MVC Redirect OutOfMemory 문제"
 date: 2020-08-10
 categories: [Spring]
 tags: [spring, mvc, redirect, oom, troubleshooting]
+author: K3N
+description: "Spring MVC에서 동적 리다이렉트 URL로 인한 OutOfMemory 문제 해결 과정. AbstractCachingViewResolver의 캐시 메커니즘과 RedirectView 사용법을 상세히 다룹니다."
+keywords: "spring, mvc, redirect, oom, outofmemory, caching, viewresolver, troubleshooting, java"
 ---
 
 운영 환경에서 KMC 본인인증 서비스 운영 중에 OutOfMemory(OOM)이 발생하여 서버가 종료되는 장애가 발생했다. 다행히 무거운 트래픽의 API가 아니고 HA(High Availability)로 구성되어 있어 큰 문제는 없었지만, 즉시 트러블슈팅이 필요했다.

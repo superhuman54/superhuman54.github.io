@@ -4,6 +4,9 @@ title: "Spark saveAsTable() 동작 원리"
 date: 2024-02-16
 categories: [Spark, Hive, AWS]
 tags: [spark, hive, managed-table, external-table, glue, s3, troubleshooting]
+author: K3N
+description: "Spark saveAsTable() 메서드의 동작 원리와 내부 메커니즘을 상세히 분석합니다. Hive Metastore와 AWS Glue와의 연동 과정을 설명합니다."
+keywords: "spark, hive, managed-table, external-table, glue, s3, troubleshooting, table management"
 ---
 
 Apache Spark에서 `saveAsTable()` 메소드는 DataFrame을 Hive 테이블로 저장하는 가장 일반적인 방법 중 하나다. 하지만 이 간단해 보이는 API 뒤에는 복잡한 메타데이터 관리와 파일 시스템 연산이 숨어있다. 특히 관리형 테이블(Managed Table)과 외부 테이블(External Table) 간의 변환 과정에서 예상치 못한 문제가 발생할 수 있다.

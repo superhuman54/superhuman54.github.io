@@ -4,6 +4,9 @@ title: "Amazon EMR 6.12와 AWS Java SDK 충돌 문제"
 date: 2023-11-24
 categories: [AWS, Spark, EMR]
 tags: [aws, emr, spark, java-sdk, dependency, troubleshooting]
+author: K3N
+description: "Amazon EMR 6.12와 AWS Java SDK 버전 충돌로 인한 Spark 애플리케이션 실행 실패 문제 해결 과정. 의존성 관리와 버전 호환성 문제를 분석합니다."
+keywords: "aws, emr, spark, java-sdk, dependency, troubleshooting, version conflict"
 ---
 
 운영 중인 Spark 애플리케이션의 성능 향상과 보안 패치를 위해 Amazon EMR 클러스터를 6.2.0에서 6.12.0으로 업그레이드했다. 하지만 업그레이드 직후 예상치 못한 문제가 발생했다. 기존에 정상적으로 동작하던 Spark 애플리케이션이 Amazon Glue 카탈로그에서 메타데이터를 읽어오는 과정에서 `NoSuchMethodError`를 발생시키며 실패하기 시작한 것이다.

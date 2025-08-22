@@ -4,6 +4,9 @@ title: "Zeppelin HDFS 사용자 불일치 Permission Denied 문제"
 date: 2023-11-10
 categories: [Big Data]
 tags: [zeppelin, hdfs, hadoop, spark, troubleshooting]
+author: K3N
+description: "Zeppelin에서 HDFS 사용자 불일치로 인한 Permission Denied 문제 해결 과정. EMR과 Zeppelin 간의 사용자 매핑 문제를 분석합니다."
+keywords: "zeppelin, hdfs, hadoop, spark, troubleshooting, emr, authentication, permission"
 ---
 
 운영 환경에서 Zeppelin을 사용하여 데이터 분석 작업을 수행하던 중, Spark 인터프리터 설정을 변경하고 재시작하자마자 예상치 못한 에러가 발생했다.

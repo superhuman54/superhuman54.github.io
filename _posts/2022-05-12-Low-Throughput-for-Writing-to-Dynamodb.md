@@ -4,6 +4,9 @@ title: "Spark에서 DynamoDB 쓰기 성능 저하 문제"
 date: 2022-05-12
 categories: [Spark, DynamoDB, AWS]
 tags: [spark, dynamodb, troubleshooting, performance, aws, emr]
+author: K3N
+description: "AWS EMR Spark에서 DynamoDB 쓰기 성능이 88% 감소한 문제 해결 과정. spark.default.parallelism 설정과 RateLimiter 쓰로틀링 메커니즘을 상세히 분석합니다."
+keywords: "spark, dynamodb, aws, emr, performance, throughput, wcu, ratelimiter, parallelism, troubleshooting"
 ---
 
 AWS EMR 환경에서 Spark 클러스터가 DynamoDB에 대용량 데이터를 쓰는 배치 작업 중에 심각한 성능 저하 문제가 발생했다. DynamoDB에 프로비저닝된 쓰기 용량 대비 실제 쓰기 처리량이 현저히 떨어지고, 배치 작업 시간이 5배 이상 증가하는 심각한 문제였다.

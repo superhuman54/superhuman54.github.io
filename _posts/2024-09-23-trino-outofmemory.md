@@ -4,6 +4,9 @@ title: "Trino 메모리 누수: Hadoop FileSystem Cache의 함정"
 date: 2024-09-23
 categories: [Trino, Hadoop, Performance]
 tags: [trino, hadoop, oom, memory-leak, filesystem-cache, troubleshooting]
+author: K3N
+description: "Trino에서 발생한 메모리 누수 문제를 해결한 과정. Hadoop FileSystem Cache의 설계 결함으로 인한 OOM 문제와 해결 방법을 상세히 다룹니다."
+keywords: "trino, presto, hadoop, memory leak, oom, filesystem cache, troubleshooting, performance"
 ---
 
 Presto에서 Trino로 전환한 후 얼마 지나지 않아 예상치 못한 문제가 발생했다. 쿼리 요청이 증가하면서 워커 노드들이 메모리 부족(OOM)으로 인해 하나둘씩 셧다운되기 시작했고, 클러스터 전체가 불안정해지는 상황이 벌어진 것이다. 단순한 설정 문제일 것이라고 생각했지만, 문제의 근본 원인은 생각보다 훨씬 깊은 곳에 숨어있었다.

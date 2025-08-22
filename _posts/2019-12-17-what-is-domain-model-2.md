@@ -3,6 +3,9 @@ layout: post
 title: "What is Domain Model (2)"
 author: "Kihwan Kim"
 comments: true
+author: K3N
+description: "도메인 모델링 과정과 모델링 기법에 대해 설명합니다. DDD에서 모델을 도출하는 방법과 실제 적용 사례를 다룹니다."
+keywords: "domain model, ddd, domain-driven design, modeling, architecture, software design"
 ---
 
 도메인 모델이 무엇인지 알기 위해 앞의 글에서 먼저 "모델"에 대해 알아보았다. 모델은 실제를 단순화해서 나타낸 인공물이라 하였다. 이 글에서는 이 모델이 탄생하기 까지의 전반적인 과정과 행위인 "모델링"에 대해 이야기해보겠다. 

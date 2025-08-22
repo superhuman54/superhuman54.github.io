@@ -3,6 +3,9 @@ layout: post
 title: "What is Domain Model (1)"
 author: "Kihwan Kim"
 comments: true
+author: K3N
+description: "도메인 모델의 기본 개념과 DDD(Domain-Driven Design)에서의 역할을 설명합니다. 소프트웨어 아키텍처에서 도메인 모델의 중요성을 다룹니다."
+keywords: "domain model, ddd, domain-driven design, architecture, software design"
 ---
 
 얼마 전, 도메인 주도 설계에 나오는 도메인 모델의 정의에 대해 질문을 받았다. 교과서적인 답변으로 마무리 지었고 나와 질문을 준 상대방도 답변에 대해 만족스럽지 못했다. 

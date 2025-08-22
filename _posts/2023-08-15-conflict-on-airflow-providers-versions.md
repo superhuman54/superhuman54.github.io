@@ -4,6 +4,9 @@ title: "Airflow Provider 패키지 버전 충돌 문제"
 date: 2023-08-15
 categories: [Airflow, Python]
 tags: [airflow, provider, dependency, kubernetes, troubleshooting, pip]
+author: K3N
+description: "Airflow Provider 패키지 버전 충돌로 인한 DAG 실행 실패 문제 해결 과정. Python 의존성 관리와 패키지 호환성 문제를 분석합니다."
+keywords: "airflow, provider, dependency, kubernetes, troubleshooting, pip, version conflict"
 ---
 
 Airflow 버전을 업그레이드하는 과정에서 Python Airflow DAG 모듈이 패키지를 import하는 과정에서 다음과 같은 에러가 발생했다.
