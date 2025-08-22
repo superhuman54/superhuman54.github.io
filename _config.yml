@@ -42,6 +42,19 @@ paginate_path: "/:num/"
 # Excludes
 #exclude: [ Gemfile, Gemfile.lock, tale.gemspec ]
 
-# Disqus (Set to your disqus id)
-disqus: superhuman54
+# Disqus (Set to your disqus id) - Disabled for Giscus
+# disqus:
+#   shortname: superhuman54
+
+# Giscus (GitHub Discussions based comments)
+giscus:
+  repo: superhuman54/superhuman54.github.io
+  repo_id: MDEwOlJlcG9zaXRvcnkyMjYwNzk3MTQ=
+  category: General
+  category_id: DIC_kwDODXmz4s4CueF9
+  mapping: pathname
+  reactions_enabled: true
+  emit_metadata: false
+  theme: preferred_color_scheme
+  lang: ko
 

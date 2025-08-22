@@ -1,0 +1,21 @@
+{%- if page.comments != false and jekyll.environment == "production" -%}
+  {%- if site.giscus.repo and site.giscus.repo_id -%}
+    <div class="giscus-comments">
+      <script src="https://giscus.app/client.js"
+              data-repo="{{ site.giscus.repo }}"
+              data-repo-id="{{ site.giscus.repo_id }}"
+              data-category="{{ site.giscus.category | default: 'General' }}"
+              data-category-id="{{ site.giscus.category_id }}"
+              data-mapping="{{ site.giscus.mapping | default: 'pathname' }}"
+              data-strict="0"
+              data-reactions-enabled="{{ site.giscus.reactions_enabled | default: '1' }}"
+              data-emit-metadata="{{ site.giscus.emit_metadata | default: '0' }}"
+              data-input-position="bottom"
+              data-theme="{{ site.giscus.theme | default: 'preferred_color_scheme' }}"
+              data-lang="{{ site.giscus.lang | default: 'en' }}"
+              crossorigin="anonymous"
+              async>
+      </script>
+    </div>
+  {%- endif -%}
+{%- endif -%}
