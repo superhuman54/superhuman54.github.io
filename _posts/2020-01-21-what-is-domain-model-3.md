@@ -3,7 +3,7 @@ layout: post
 title: "What is Domain Model (3)"
 author: "Kihwan Kim"
 comments: true
-author: K3N
+author: K4N
 description: "도메인 모델의 실제 구현과 코드 적용 방법을 설명합니다. DDD 패턴과 실제 소프트웨어 개발에서의 활용 사례를 다룹니다."
 keywords: "domain model, ddd, domain-driven design, implementation, code, software development"
 ---

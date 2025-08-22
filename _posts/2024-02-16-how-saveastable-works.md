@@ -4,7 +4,7 @@ title: "Spark saveAsTable() 동작 원리"
 date: 2024-02-16
 categories: [Spark, Hive, AWS]
 tags: [spark, hive, managed-table, external-table, glue, s3, troubleshooting]
-author: K3N
+author: K4N
 description: "Spark saveAsTable() 메서드의 동작 원리와 내부 메커니즘을 상세히 분석합니다. Hive Metastore와 AWS Glue와의 연동 과정을 설명합니다."
 keywords: "spark, hive, managed-table, external-table, glue, s3, troubleshooting, table management"
 ---

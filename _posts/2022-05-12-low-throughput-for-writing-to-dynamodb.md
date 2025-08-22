@@ -4,7 +4,7 @@ title: "Spark에서 DynamoDB 쓰기 성능 저하 문제"
 date: 2022-05-12
 categories: [Spark, DynamoDB, AWS]
 tags: [spark, dynamodb, troubleshooting, performance, aws, emr]
-author: K3N
+author: K4N
 description: "AWS EMR Spark에서 DynamoDB 쓰기 성능이 88% 감소한 문제 해결 과정. spark.default.parallelism 설정과 RateLimiter 쓰로틀링 메커니즘을 상세히 분석합니다."
 keywords: "spark, dynamodb, aws, emr, performance, throughput, wcu, ratelimiter, parallelism, troubleshooting"
 ---

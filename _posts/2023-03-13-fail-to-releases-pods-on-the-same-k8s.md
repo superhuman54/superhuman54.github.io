@@ -4,7 +4,7 @@ title: "공유 Kubernetes 클러스터에서 Airflow Pod 중복 생성 및 회�
 date: 2023-03-13
 categories: [Airflow, Kubernetes]
 tags: [airflow, kubernetes, pod, duplicate, cleanup, troubleshooting]
-author: K3N
+author: K4N
 description: "공유 Kubernetes 클러스터에서 Airflow Pod 중복 생성 및 회수 실패 문제 해결 과정. 레이블 충돌과 Pod 생명주기 관리 문제를 분석합니다."
 keywords: "airflow, kubernetes, pod, duplicate, cleanup, troubleshooting, label conflict, pod lifecycle"
 ---

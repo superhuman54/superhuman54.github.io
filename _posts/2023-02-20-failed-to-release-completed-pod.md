@@ -4,7 +4,7 @@ title: "Amazon MWAA에서 Kubernetes Pod 회수 실패 문제"
 date: 2023-02-10
 categories: [Airflow, Kubernetes, AWS]
 tags: [mwaa, airflow, kubernetes, pod, troubleshooting, celery, eks]
-author: K3N
+author: K4N
 description: "Amazon MWAA에서 KubernetesOperator Pod가 작업 완료 후 회수되지 않는 문제 해결 과정. CeleryWorker 축소와 xcom 컨테이너 생명주기 관리 문제를 분석합니다."
 keywords: "mwaa, airflow, kubernetes, pod, celery, eks, troubleshooting, xcom, container lifecycle"
 ---

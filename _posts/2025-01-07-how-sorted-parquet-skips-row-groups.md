@@ -4,7 +4,7 @@ title: "정렬된 Parquet는 어떻게 Row Group을 스킵하는가"
 date: 2025-01-07 12:00:00 +0900
 categories: [Data Engineering, Parquet, Performance]
 tags: [parquet, spark, performance, binary-search, push-down]
-author: K3N
+author: K4N
 description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Group 스킵 메커니즘을 상세히 분석합니다. ASCENDING/DESCENDING 정렬과 성능 최적화 방법을 다룹니다."
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---

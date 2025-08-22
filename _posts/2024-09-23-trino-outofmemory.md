@@ -4,7 +4,7 @@ title: "Trino 메모리 누수: Hadoop FileSystem Cache의 함정"
 date: 2024-09-23
 categories: [Trino, Hadoop, Performance]
 tags: [trino, hadoop, oom, memory-leak, filesystem-cache, troubleshooting]
-author: K3N
+author: K4N
 description: "Trino에서 발생한 메모리 누수 문제를 해결한 과정. Hadoop FileSystem Cache의 설계 결함으로 인한 OOM 문제와 해결 방법을 상세히 다룹니다."
 keywords: "trino, presto, hadoop, memory leak, oom, filesystem cache, troubleshooting, performance"
 ---

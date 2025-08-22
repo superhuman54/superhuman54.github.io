@@ -4,7 +4,7 @@ title: "Amazon EMR 6.12와 AWS Java SDK 충돌 문제"
 date: 2023-11-24
 categories: [AWS, Spark, EMR]
 tags: [aws, emr, spark, java-sdk, dependency, troubleshooting]
-author: K3N
+author: K4N
 description: "Amazon EMR 6.12와 AWS Java SDK 버전 충돌로 인한 Spark 애플리케이션 실행 실패 문제 해결 과정. 의존성 관리와 버전 호환성 문제를 분석합니다."
 keywords: "aws, emr, spark, java-sdk, dependency, troubleshooting, version conflict"
 ---
