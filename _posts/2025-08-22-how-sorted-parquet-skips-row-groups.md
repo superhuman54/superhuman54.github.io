@@ -4,15 +4,22 @@ title: "정렬된 Parquet는 어떻게 Row Group을 스킵하는가"
 date: 2025-08-22 12:00:00 +0900
 categories: [Data Engineering, Parquet, Performance]
 tags: [parquet, spark, performance, binary-search, push-down]
+author: K3N
+description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Group 스킵 메커니즘을 상세히 분석합니다. ASCENDING/DESCENDING 정렬과 성능 최적화 방법을 다룹니다."
+keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
+
+정렬된 Parquet 파일을 사용하면 쿼리 성능이 크게 향상된다는 건 알고 있지만, 정말 궁금한 건 어떻게 그게 가능한지다. 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴볼게.
+
+<!-- more -->
 
 ## 개요
 
-Parquet 파일에서 정렬된 컬럼을 사용하면 쿼리 성능을 크게 향상시킬 수 있습니다. 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘에 대해 자세히 살펴보겠습니다.
+정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 불필요한 Row Group을 스킵함으로써 쿼리 성능을 크게 향상시켜. 이 메커니즘의 핵심은 `BoundaryOrder`와 Column Index를 통한 효율적인 필터링이야.
 
 ## Parquet 파일 구조와 Row Group
 
-Parquet 파일은 다음과 같은 계층 구조를 가집니다:
+Parquet 파일은 다음과 같은 계층 구조를 가져:
 
 ```
 Parquet File
@@ -27,11 +34,11 @@ Parquet File
 └── ...
 ```
 
-각 Row Group은 독립적으로 처리될 수 있으며, 이는 병렬 처리와 필터링 최적화의 핵심입니다.
+각 Row Group은 독립적으로 처리될 수 있고, 이게 병렬 처리와 필터링 최적화의 핵심이야.
 
 ## 정렬된 데이터의 BoundaryOrder
 
-Parquet에서 컬럼이 정렬되어 있는지 여부는 `BoundaryOrder` enum으로 표현됩니다:
+Parquet에서 컬럼이 정렬되어 있는지 여부는 `BoundaryOrder` enum으로 표현돼:
 
 ```java
 // parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java
@@ -46,7 +53,7 @@ public enum BoundaryOrder {
 
 ### 1. Column Index 생성 시점
 
-`BoundaryOrder`는 Column Index가 생성될 때 자동으로 계산됩니다:
+`BoundaryOrder`는 Column Index가 생성될 때 자동으로 계산돼:
 
 ```java
 // parquet-column/src/main/java/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java
@@ -123,7 +130,7 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 
 ### 2. 실제 예시
 
-ASCENDING 정렬된 age 컬럼이 있다고 가정해보겠습니다:
+ASCENDING 정렬된 age 컬럼이 있다고 가정해보자:
 
 ```
 Row Group 0: min=10, max=50
@@ -145,7 +152,7 @@ Binary Search 과정:
 7. **Row Group 0 검사**: max=50 >= 120? → false → right=0
 8. **결과**: right=0부터 끝까지 (Row Group 2, 3, 4)
 
-**최종 결과**: Row Group 2, 3, 4만 읽기 (Row Group 0, 1은 스킵)
+**최종 결과**: Row Group 2, 3, 4만 읽고 (Row Group 0, 1은 스킵)
 
 ### 3. lt (less than) 연산
 
@@ -199,7 +206,7 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 
 ### 2. 실제 예시
 
-DESCENDING 정렬된 age 컬럼이 있다고 가정해보겠습니다:
+DESCENDING 정렬된 age 컬럼이 있다고 가정해보자:
 
 ```
 Row Group 0: min=250, max=300
@@ -219,7 +226,7 @@ Row Group 4: min=51, max=100
 5. **Row Group 0 검사**: max=300 >= 120? → true → right=-1
 6. **결과**: 0부터 left까지 (Row Group 0, 1)
 
-**최종 결과**: Row Group 0, 1만 읽기 (Row Group 2, 3, 4는 스킵)
+**최종 결과**: Row Group 0, 1만 읽고 (Row Group 2, 3, 4는 스킵)
 
 ## Spark에서 정렬된 Parquet 생성하기
 
@@ -272,7 +279,7 @@ if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX
 }
 ```
 
-Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않습니다.
+Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않아.
 
 ## 실제 성능 향상 효과
 
@@ -294,9 +301,9 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 | 10,000 Row Groups | 10,000 검사 | ~13 검사 | 770배 |
 | 100,000 Row Groups | 100,000 검사 | ~17 검사 | 5,880배 |
 
-## 결론
+## 마무리
 
-정렬된 Parquet 파일은 Binary Search 알고리즘을 활용하여 Row Group을 효율적으로 스킵할 수 있습니다. 이는 특히 대용량 데이터에서 쿼리 성능을 크게 향상시킵니다.
+정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 Row Group을 효율적으로 스킵할 수 있어. 이는 특히 대용량 데이터에서 쿼리 성능을 크게 향상시켜.
 
 ### 핵심 포인트
 1. **ASCENDING 정렬**: 오름차순으로 Binary Search 수행
@@ -304,4 +311,4 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 3. **성능 향상**: O(n) → O(log n) 시간 복잡도 개선
 4. **실용적 적용**: Spark에서 `orderBy()` 후 Parquet 저장
 
-정렬된 데이터의 이러한 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 크게 개선할 수 있습니다.
+정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 크게 개선할 수 있어.
