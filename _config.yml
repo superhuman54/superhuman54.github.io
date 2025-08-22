@@ -12,9 +12,7 @@ url:            "https://superhuman54.github.io"
 google_analytics: UA-154789542-1
 
 # Author
-author:
-  name:         Kihwan Kim
-  email:        superhuman54.tech@gmail.com
+author: K3N
 
 # Build settings
 #markdown:       kramdown
