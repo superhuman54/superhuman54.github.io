@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "정렬된 Parquet는 어떻게 Row Group을 스킵하는가"
-date: 2025-08-22 12:00:00 +0900
+date: 2025-01-07 12:00:00 +0900
 categories: [Data Engineering, Parquet, Performance]
 tags: [parquet, spark, performance, binary-search, push-down]
 author: K3N
