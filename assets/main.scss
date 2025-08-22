@@ -1,0 +1,23 @@
+---
+---
+
+@import "minima";
+
+// 포스트 excerpt 스타일 커스터마이징
+.post-list .post-meta {
+  color: $grey-color;
+}
+
+.post-list p {
+  color: $grey-color-dark;
+  opacity: 1;
+  font-size: 1em;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.post-list h3 {
+  margin-bottom: 0.3rem;
+}
+
+
