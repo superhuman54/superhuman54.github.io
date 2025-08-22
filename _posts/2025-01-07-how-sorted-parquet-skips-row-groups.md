@@ -47,7 +47,10 @@ public enum BoundaryOrder {
   DESCENDING    // 내림차순 정렬
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
+</div>
 
 ## BoundaryOrder 계산 과정
 
@@ -75,7 +78,10 @@ private BoundaryOrder calculateBoundaryOrder(PrimitiveComparator<Binary> compara
   }
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
+</div>
 
 ### 2. 정렬 판단 로직
 
@@ -100,7 +106,10 @@ private boolean isDescending(PrimitiveComparator<Binary> comparator) {
   return true;
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
+</div>
 
 ## ASCENDING 정렬된 Row Group에서 Binary Search
 
@@ -128,7 +137,10 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(right, length - 1, comparator::translate);
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
+</div>
 
 ### 2. 실제 예시
 
@@ -178,7 +190,10 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(0, left, comparator::translate);
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
+</div>
 
 ## DESCENDING 정렬된 Row Group에서 역순 Binary Search
 
@@ -206,7 +221,10 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(0, left, comparator::translate);
 }
 ```
-*parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java*
+
+<div class="code-footer">
+  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
+</div>
 
 ### 2. 실제 예시
 

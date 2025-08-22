@@ -131,4 +131,47 @@
   }
 }
 
+// 코드블록 파일 참조 footer 스타일
+.highlight {
+  margin-bottom: 0 !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.code-footer {
+  background-color: #f1f3f4;
+  border: 1px solid #dadce0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  color: #5f6368;
+  font-family: $base-font-family;
+  margin-top: 0;
+  text-align: right;
+  margin-bottom: 1.5rem;
+}
+
+.code-footer::before {
+  content: "";
+  margin-right: 0;
+}
+
+.code-footer .file-path {
+  font-family: $base-font-family;
+  font-weight: 500;
+  color: $grey-color-dark;
+}
+
+// 다크모드 대응
+@media (prefers-color-scheme: dark) {
+  .code-footer {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: #9ca3af;
+  }
+  
+  .code-footer .file-path {
+    color: #d1d5db;
+  }
+}
 
