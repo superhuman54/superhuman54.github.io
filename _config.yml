@@ -56,6 +56,6 @@ giscus:
   mapping: pathname
   reactions_enabled: true
   emit_metadata: false
-  theme: preferred_color_scheme
+  theme: light
   lang: ko
 
