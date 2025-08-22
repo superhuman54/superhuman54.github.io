@@ -3,7 +3,7 @@ minima:
   date_format: "%b %-d, %Y"
 
 # Site settings
-title:          K3N
+title:          K4N
 url:            "https://superhuman54.github.io"
 show_excerpts:  true
 excerpt_separator: "<!-- more -->"
@@ -12,7 +12,7 @@ excerpt_separator: "<!-- more -->"
 google_analytics: UA-154789542-1
 
 # Author
-author: K3N
+author: K4N
 
 # Build settings
 #markdown:       kramdown
