@@ -1,7 +1,10 @@
 theme: minima
-
+minima:
+  date_format: "%b %-d, %Y"
 # Site settings
-title:          craftsman
+title:          K3N
+show_excerpts:  true
+excerpt_separator: "<!-- more -->"
 url:            "https://superhuman54.github.io"
 
 
@@ -24,8 +27,8 @@ author:
 #  style:        compressed
 
 # Gems
-#plugins:
-#  - jekyll-feed
+plugins:
+  - jekyll-feed
 #  - jekyll-paginate
 #  - jekyll-seo-tag
 #  - jekyll-sitemap
