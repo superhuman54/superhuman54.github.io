@@ -20,4 +20,115 @@
   margin-bottom: 0.3rem;
 }
 
+// 페이지네이션 스타일 (깔끔한 디자인)
+.pagination {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid $grey-color-light;
+}
+
+.pagination a,
+.pagination-previous,
+.pagination-next {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  margin: 0 0.25rem;
+  color: $brand-color;
+  text-decoration: none;
+  border: 2px solid $brand-color;
+  border-radius: 6px;
+  background-color: white;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    color: white;
+    background-color: $brand-color;
+    transform: translateY(-1px);
+  }
+}
+
+.pagination-current {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  margin: 0 0.25rem;
+  color: $text-color;
+  font-weight: 600;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+// 포스트 이미지 스타일 개선
+.post-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5rem auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid $grey-color-light;
+  object-fit: contain; // 비율 유지하며 컨테이너에 맞춤
+}
+
+// 이미지가 포함된 문단 정렬
+.post-content p img {
+  margin: 1rem auto;
+}
+
+// 작은 아이콘이나 인라인 이미지
+.post-content img[src*="icon"],
+.post-content img[src*="badge"],
+.post-content img[alt*="icon"],
+.post-content img[alt*="badge"] {
+  display: inline-block;
+  margin: 0 0.25rem;
+  max-height: 1.5rem;
+  width: auto;
+  box-shadow: none;
+  border: none;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+// 큰 스크린샷이나 다이어그램
+.post-content img[src*="screenshot"],
+.post-content img[src*="diagram"],
+.post-content img[alt*="screenshot"],
+.post-content img[alt*="diagram"] {
+  max-width: 95%;
+  margin: 2rem auto;
+  border: 2px solid $grey-color-light;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+// 코드 블록 내 이미지
+.post-content .highlight img,
+.post-content pre img {
+  display: inline;
+  margin: 0;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  max-height: 1.2em;
+  vertical-align: baseline;
+}
+
+// 반응형 이미지
+@media screen and (max-width: 600px) {
+  .post-content img {
+    max-width: 100%;
+    margin: 1rem 0;
+    border-radius: 6px;
+  }
+  
+  .post-content img[src*="screenshot"],
+  .post-content img[src*="diagram"] {
+    max-width: 100%;
+    margin: 1.5rem 0;
+  }
+}
+
 
