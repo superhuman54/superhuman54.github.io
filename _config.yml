@@ -15,8 +15,8 @@ author:
 
 # Build settings
 #markdown:       kramdown
-include:
-  - _pages
+#include:
+#  - _pages
 
 # Assets
 #sass:
