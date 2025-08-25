@@ -9,13 +9,11 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-## 이 글을 쓰게 된 동기
-
-데이터 엔지니어링을 하면서 항상 궁금했던 것이 있다. "정렬된 Parquet 파일이 정말로 성능이 좋다는데, 도대체 어떻게 그게 가능한 거지?"라는 질문이었다. 
+"정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `orderBy()` 후 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
 
 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 단순히 "정렬되어 있으니까 빠르다"는 설명으로는 부족했다. 실제로 어떤 알고리즘이 동작하고, 어떤 메타데이터가 저장되어 있는지 궁금했다.
 
-특히 Spark에서 `orderBy()` 후 Parquet로 저장하면 성능이 좋아진다는 건 알았지만, 그 뒤에 숨겨진 기술적 세부사항을 이해하고 싶었다. 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
+이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
 
 <!-- more -->
 
@@ -693,28 +691,18 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 
 ### 핵심 포인트
 
-1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group이나 Page에는 정렬 정보가 저장되지 않음
-2. **1차 필터링**: Row Group 통계 정보로 순차 검색 (Statistics, Dictionary, Bloom Filter 레벨)
-3. **2차 필터링**: Column Index의 BoundaryOrder로 Binary Search 수행
-4. **Row Group 메타데이터**: 정렬 정보 없이 단순 통계만 저장
-5. **Column Index**: BoundaryOrder로 페이지 정렬 정보 저장
-6. **Column Index 제한**: 크기 제한으로 인한 BoundaryOrder 생성 실패 가능성 고려
+정렬된 Parquet 파일의 핵심은 **BoundaryOrder가 Column Index에만 존재**한다는 점이다. Row Group이나 Page에는 정렬 정보가 저장되지 않으며, 이는 메모리 효율성을 위한 설계 선택이다.
+
+필터링은 두 단계로 이루어진다. 첫 번째는 Row Group 통계 정보를 이용한 순차 검색으로, Statistics, Dictionary, Bloom Filter 레벨에서 수행된다. 두 번째는 Column Index의 BoundaryOrder를 활용한 Binary Search로, 이 단계에서 정렬의 진정한 효과가 나타난다.
+
+Row Group 메타데이터는 정렬 정보 없이 단순한 통계만 저장하지만, Column Index에는 BoundaryOrder가 저장되어 페이지 정렬 정보를 관리한다. 다만 Column Index는 크기 제한으로 인해 생성되지 않을 수 있으므로 이 점을 고려해야 한다.
 
 ### 왜 이렇게 설계했을까?
 
-Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다:
-
-- **Row Group 레벨**: 단순한 통계 정보만 저장하여 메타데이터 크기 최소화
-- **Page 레벨**: 정렬 정보 없이 데이터만 저장하여 중복 제거
-- **Column Index 레벨**: 정렬 정보를 저장하여 Binary Search 가능
-- **크기 제한**: 메타데이터 크기가 너무 커지는 것을 방지
+Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다. Row Group 레벨에서는 단순한 통계 정보만 저장하여 메타데이터 크기를 최소화하고, Page 레벨에서는 정렬 정보 없이 데이터만 저장하여 중복을 제거한다. Column Index 레벨에서만 정렬 정보를 저장하여 Binary Search가 가능하도록 하면서, 크기 제한을 통해 메타데이터가 너무 커지는 것을 방지한다.
 
 ### 실제 활용 시 고려사항
 
-정렬된 데이터의 이런 특성을 활용할 때는 다음을 고려해야 한다:
-
-1. **Column Index 생성 여부**: 크기 제한으로 인해 생성되지 않을 수 있다
-2. **페이지 크기 조정**: 너무 큰 페이지는 Column Index 생성 실패의 원인이 될 수 있다
-3. **String 컬럼 주의**: 긴 String은 min/max 크기를 크게 만들어 Column Index 생성에 실패할 수 있다
+정렬된 데이터의 이런 특성을 활용할 때는 몇 가지 고려사항이 있다. Column Index는 크기 제한으로 인해 생성되지 않을 수 있으므로, 너무 큰 페이지는 Column Index 생성 실패의 원인이 될 수 있다. 특히 String 컬럼의 경우 긴 String은 min/max 크기를 크게 만들어 Column Index 생성에 실패할 수 있으므로 주의가 필요하다.
 
 정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 개선할 수 있다. 하지만 단순히 "정렬하면 빠르다"가 아니라, 그 뒤에 숨겨진 기술적 세부사항을 이해하는 것이 중요하다.
