@@ -21,9 +21,9 @@ keywords: "parquet, spark, performance, binary-search, push-down, row-group, bou
 
 ## 개요
 
-정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 불필요한 Row Group을 스킵함으로써 쿼리 성능을 크게 향상시킨다. 이 메커니즘의 핵심은 `BoundaryOrder`와 Column Index를 통한 효율적인 필터링이다.
+정렬된 Parquet 파일은 두 단계의 필터링을 통해 효율적인 쿼리 성능을 달성한다. 첫 번째는 Row Group 레벨의 통계 기반 순차 검색이고, 두 번째는 Column Index 레벨의 Binary Search이다.
 
-하지만 여기서 중요한 점은, Row Group 레벨에서는 여전히 순차 검색을 한다는 것이다. 정렬의 진정한 효과는 Column Index 레벨에서 나타난다. 이 글을 통해 Parquet의 내부 구조와 필터링 메커니즘을 정확히 이해해보자.
+**중요한 점**: Row Group 레벨에서는 정렬 여부와 관계없이 순차 검색을 한다. 정렬의 진정한 효과는 Column Index 레벨에서 나타난다.
 
 ## Parquet 파일 구조 상세 분석
 
@@ -206,9 +206,9 @@ private void addRowGroup(
 - **통계 정보만**: Row Group은 단순한 통계 정보(min/max, 행 개수, 크기 등)만 저장
 - **Column Index 분리**: 정렬 정보는 Column Chunk 내의 Column Index에 별도로 저장
 
-## 1차 필터: 통계 기반 스킵
+## 1차 필터: Row Group 레벨 통계 기반 순차 검색
 
-Parquet는 세 단계의 필터링을 통해 Row Group을 효율적으로 스킵한다. 이 과정에서 Row Group은 정렬 여부와 관계없이 순차적으로 검사된다.
+**중요**: Row Group 레벨에서는 정렬 여부와 관계없이 순차 검색을 한다. 모든 Row Group을 하나씩 검사하여 조건에 맞는지 판단한다.
 
 ### 필터링 단계
 
@@ -220,6 +220,7 @@ public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredic
   
   List<BlockMetaData> filteredBlocks = new ArrayList<BlockMetaData>();
 
+  // 모든 Row Group을 순차적으로 검사 (정렬 여부 무관)
   for (BlockMetaData block : blocks) {
     boolean drop = false;
 
@@ -294,6 +295,31 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
 <div class="code-footer">
   <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java</span>
 </div>
+
+### Row Group 순차 검색의 실제 예시
+
+ASCENDING 정렬된 age 컬럼이 있다고 가정해보자.
+
+```
+Row Group 0: min=10, max=50
+Row Group 1: min=51, max=100  
+Row Group 2: min=101, max=150
+Row Group 3: min=151, max=200
+Row Group 4: min=201, max=250
+```
+
+**검색 조건: `age > 120`**
+
+Row Group 순차 검색 과정:
+1. **Row Group 0 검사**: max=50 >= 120? → false → 스킵
+2. **Row Group 1 검사**: max=100 >= 120? → false → 스킵
+3. **Row Group 2 검사**: max=150 >= 120? → true → 포함
+4. **Row Group 3 검사**: max=200 >= 120? → true → 포함
+5. **Row Group 4 검사**: max=250 >= 120? → true → 포함
+
+**결과**: Row Group 2, 3, 4만 선택됨 (Row Group 0, 1은 스킵)
+
+**중요**: 정렬된 데이터라도 Row Group 레벨에서는 순차 검색을 한다. 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타난다.
 
 ### 왜 Row Group 레벨에서는 순차 검색을 할까?
 
@@ -469,9 +495,9 @@ spark.conf.set("parquet.block.size", "50MB")
 val truncatedDF = df.withColumn("long_string", substring(col("long_string"), 1, 100))
 ```
 
-## 2차 필터: ASCENDING 정렬된 Row Group에서 Binary Search
+## 2차 필터: Column Index 레벨 Binary Search
 
-통계 기반 스킵 후, Column Index의 `BoundaryOrder`를 활용한 Binary Search가 수행된다. 이 단계에서 정렬의 진정한 효과가 나타난다.
+통과한 Row Group 내부의 Column Index에서 `BoundaryOrder`를 활용한 Binary Search가 수행된다. 이 단계에서 정렬의 진정한 효과가 나타난다.
 
 ### 1. gt (greater than) 연산
 
@@ -502,29 +528,29 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 
 ### 2. 실제 예시
 
-ASCENDING 정렬된 age 컬럼이 있다고 가정해보자.
+통과한 Row Group 2 내부의 페이지들이 ASCENDING 정렬되어 있다고 가정해보자.
 
 ```
-Row Group 0: min=10, max=50
-Row Group 1: min=51, max=100  
-Row Group 2: min=101, max=150
-Row Group 3: min=151, max=200
-Row Group 4: min=201, max=250
+Row Group 2 내부 페이지들:
+Page 0: min=101, max=120
+Page 1: min=121, max=130
+Page 2: min=131, max=140
+Page 3: min=141, max=150
 ```
 
-**검색 조건: `age > 120`**
+**검색 조건: `age > 125`**
 
-Binary Search 과정:
-1. **초기 상태**: left=0, right=5
-2. **중간값 계산**: i = floorMid(0, 5) = 2
-3. **Row Group 2 검사**: max=150 >= 120? → false → right=2
-4. **중간값 계산**: i = floorMid(0, 2) = 1  
-5. **Row Group 1 검사**: max=100 >= 120? → false → right=1
+Column Index Binary Search 과정:
+1. **초기 상태**: left=0, right=4
+2. **중간값 계산**: i = floorMid(0, 4) = 2
+3. **Page 2 검사**: max=140 >= 125? → true → right=2
+4. **중간값 계산**: i = floorMid(0, 2) = 1
+5. **Page 1 검사**: max=130 >= 125? → true → right=1
 6. **중간값 계산**: i = floorMid(0, 1) = 0
-7. **Row Group 0 검사**: max=50 >= 120? → false → right=0
-8. **결과**: right=0부터 끝까지 (Row Group 2, 3, 4)
+7. **Page 0 검사**: max=120 >= 125? → false → right=0
+8. **결과**: right=0부터 끝까지 (Page 1, 2, 3)
 
-**최종 결과**: Row Group 2, 3, 4만 읽는다 (Row Group 0, 1은 스킵)
+**최종 결과**: Page 1, 2, 3만 읽는다 (Page 0은 스킵)
 
 ### 3. lt (less than) 연산
 
@@ -553,7 +579,7 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
   <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
 </div>
 
-## DESCENDING 정렬된 Row Group에서 역순 Binary Search
+## DESCENDING 정렬된 Column Index에서 역순 Binary Search
 
 ### 1. gt (greater than) 연산
 
@@ -584,27 +610,27 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 
 ### 2. 실제 예시
 
-DESCENDING 정렬된 age 컬럼이 있다고 가정해보자.
+통과한 Row Group 내부의 페이지들이 DESCENDING 정렬되어 있다고 가정해보자.
 
 ```
-Row Group 0: min=250, max=300
-Row Group 1: min=201, max=249
-Row Group 2: min=151, max=200
-Row Group 3: min=101, max=150
-Row Group 4: min=51, max=100
+Row Group 내부 페이지들:
+Page 0: min=150, max=160
+Page 1: min=140, max=149
+Page 2: min=130, max=139
+Page 3: min=120, max=129
 ```
 
-**검색 조건: `age > 120`**
+**검색 조건: `age > 125`**
 
 역순 Binary Search 과정:
-1. **초기 상태**: left=-1, right=4
-2. **중간값 계산**: i = ceilingMid(-1, 4) = 2
-3. **Row Group 2 검사**: max=200 >= 120? → true → right=1
-4. **중간값 계산**: i = ceilingMid(-1, 1) = 0
-5. **Row Group 0 검사**: max=300 >= 120? → true → right=-1
-6. **결과**: 0부터 left까지 (Row Group 0, 1)
+1. **초기 상태**: left=-1, right=3
+2. **중간값 계산**: i = ceilingMid(-1, 3) = 1
+3. **Page 1 검사**: max=149 >= 125? → true → right=0
+4. **중간값 계산**: i = ceilingMid(-1, 0) = 0
+5. **Page 0 검사**: max=160 >= 125? → true → right=-1
+6. **결과**: 0부터 left까지 (Page 0, 1)
 
-**최종 결과**: Row Group 0, 1만 읽는다 (Row Group 2, 3, 4는 스킵)
+**최종 결과**: Page 0, 1만 읽는다 (Page 2, 3는 스킵)
 
 ## Spark에서 정렬된 Parquet 생성하기
 
@@ -663,7 +689,7 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 
 ## 정리
 
-이 글을 통해 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지 자세히 살펴봤다. 핵심은 두 단계의 필터링 메커니즘이다.
+이 글을 통해 정렬된 Parquet 파일이 어떻게 효율적인 필터링을 수행하는지 자세히 살펴봤다. 핵심은 두 단계의 필터링 메커니즘이다.
 
 ### 핵심 포인트
 
