@@ -9,13 +9,11 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-## 이 글을 쓰게 된 동기
-
-데이터 엔지니어링을 하면서 항상 궁금했던 것이 있다. "정렬된 Parquet 파일이 정말로 성능이 좋다는데, 도대체 어떻게 그게 가능한 거지?"라는 질문이었다. 
+"정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `orderBy()` 후 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
 
 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 단순히 "정렬되어 있으니까 빠르다"는 설명으로는 부족했다. 실제로 어떤 알고리즘이 동작하고, 어떤 메타데이터가 저장되어 있는지 궁금했다.
 
-특히 Spark에서 `orderBy()` 후 Parquet로 저장하면 성능이 좋아진다는 건 알았지만, 그 뒤에 숨겨진 기술적 세부사항을 이해하고 싶었다. 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
+이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
 
 <!-- more -->
 
@@ -389,85 +387,9 @@ Column Index Binary Search 과정:
 
 **최종 결과**: Page 1, 2, 3만 읽는다 (Page 0은 스킵)
 
-### 3. lt (less than) 연산
 
-```java
-@Override
-OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
-  int length = comparator.arrayLength();
-  if (length == 0) {
-    return IndexIterator.EMPTY;
-  }
-  int left = -1;
-  int right = length - 1;
-  do {
-    int i = ceilingMid(left, right);
-    if (comparator.compareValueToMin(i) <= 0) {
-      right = i - 1;  // 이 페이지의 최소값이 검색값보다 크면 이전 페이지로
-    } else {
-      left = i;       // 이 페이지에 검색값보다 작은 값이 있을 수 있음
-    }
-  } while (left < right);
-  return IndexIterator.rangeTranslate(0, left, comparator::translate);
-}
-```
 
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
 
-## DESCENDING 정렬된 Column Index에서 역순 Binary Search
-
-### 1. gt (greater than) 연산
-
-```java
-@Override
-OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
-  int length = comparator.arrayLength();
-  if (length == 0) {
-    return IndexIterator.EMPTY;
-  }
-  int left = -1;
-  int right = length - 1;
-  do {
-    int i = ceilingMid(left, right);
-    if (comparator.compareValueToMax(i) >= 0) {
-      right = i - 1;  // 이 페이지의 최대값이 검색값보다 작으면 이전 페이지로
-    } else {
-      left = i;       // 이 페이지에 검색값보다 큰 값이 있을 수 있음
-    }
-  } while (left < right);
-  return IndexIterator.rangeTranslate(0, left, comparator::translate);
-}
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
-
-### 2. 실제 예시
-
-통과한 Row Group 내부의 페이지들이 DESCENDING 정렬되어 있다고 가정해보자.
-
-```
-Row Group 내부 페이지들:
-Page 0: min=150, max=160
-Page 1: min=140, max=149
-Page 2: min=130, max=139
-Page 3: min=120, max=129
-```
-
-**검색 조건: `age > 125`**
-
-역순 Binary Search 과정:
-1. **초기 상태**: left=-1, right=3
-2. **중간값 계산**: i = ceilingMid(-1, 3) = 1
-3. **Page 1 검사**: max=149 >= 125? → true → right=0
-4. **중간값 계산**: i = ceilingMid(-1, 0) = 0
-5. **Page 0 검사**: max=160 >= 125? → true → right=-1
-6. **결과**: 0부터 left까지 (Page 0, 1)
-
-**최종 결과**: Page 0, 1만 읽는다 (Page 2, 3는 스킵)
 
 ## Spark에서 정렬된 Parquet 생성하기
 
