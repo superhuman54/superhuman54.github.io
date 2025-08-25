@@ -118,10 +118,6 @@ public enum BoundaryOrder {
 }
 ```
 
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
-
 ### BoundaryOrder의 의미
 
 **UNORDERED**: 페이지들이 임의의 순서로 배치되어 있다. 필터링 시 모든 페이지를 순차적으로 검사해야 한다.
@@ -135,17 +131,12 @@ public enum BoundaryOrder {
 **중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**한다. Row Group 레벨이나 Page 레벨에는 정렬 정보가 저장되지 않는다.
 
 ```java
-// parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java
 public enum BoundaryOrder implements org.apache.thrift.TEnum {
   UNORDERED(0),
   ASCENDING(1), 
   DESCENDING(2);
 }
 ```
-
-<div class="code-footer">
-  <span class="file-path">parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java</span>
-</div>
 
 ### 왜 Row Group에는 정렬 정보가 없을까?
 
@@ -169,7 +160,6 @@ Page 레벨에서도 정렬 정보를 저장하지 않는 이유는:
 Row Group을 저장할 때는 정렬 정보 없이 단순한 통계 정보만 저장된다:
 
 ```java
-// parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java
 private void addRowGroup(
     ParquetMetadata parquetMetadata,
     List<RowGroup> rowGroups,
@@ -203,10 +193,6 @@ private void addRowGroup(
 }
 ```
 
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java</span>
-</div>
-
 **Row Group 저장 시 특징:**
 - **정렬 정보 없음**: Row Group 자체에는 `BoundaryOrder` 정보가 저장되지 않음
 - **통계 정보만**: Row Group은 단순한 통계 정보(min/max, 행 개수, 크기 등)만 저장
@@ -219,7 +205,6 @@ private void addRowGroup(
 ### 필터링 단계
 
 ```java
-// parquet-hadoop/src/main/java/org/apache/parquet/filter2/compat/RowGroupFilter.java
 @Override
 public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredicateCompat) {
   FilterPredicate filterPredicate = filterPredicateCompat.getFilterPredicate();
@@ -257,10 +242,6 @@ public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredic
 }
 ```
 
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/compat/RowGroupFilter.java</span>
-</div>
-
 **통계 기반 스킵의 세 가지 단계:**
 
 1. **Statistics Level**: Row Group의 min/max 통계로 스킵 판단
@@ -270,7 +251,6 @@ public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredic
 ### Statistics Level의 실제 동작
 
 ```java
-// parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java
 @Override
 @SuppressWarnings("unchecked")
 public <T extends Comparable<T>> Boolean visit(Gt<T> gt) {
@@ -297,10 +277,6 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
   return stats.compareMinToValue(value) >= 0;
 }
 ```
-
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java</span>
-</div>
 
 ### Row Group 순차 검색의 실제 예시
 
@@ -363,10 +339,6 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 }
 ```
 
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
-
 ### 2. 실제 예시
 
 통과한 Row Group 2 내부의 페이지들이 ASCENDING 정렬되어 있다고 가정해보자.
@@ -416,10 +388,6 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
 }
 ```
 
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
-
 ## DESCENDING 정렬된 Column Index에서 역순 Binary Search
 
 ### 1. gt (greater than) 연산
@@ -444,10 +412,6 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
   return IndexIterator.rangeTranslate(0, left, comparator::translate);
 }
 ```
-
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
-</div>
 
 ### 2. 실제 예시
 
@@ -522,9 +486,6 @@ if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX
   currentColumnIndexes.add(columnIndexBuilder.build());  // Column Index 생성
 }
 ```
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java</span>
-</div>
 
 Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않는다.
 
@@ -552,7 +513,7 @@ Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한
 
 ### 정렬된 데이터의 필터링 과정
 
-**age 컬럼이 하나의 Parquet 파일에서 정렬되어 있어도:**
+**정렬된 컬럼이 하나의 Parquet 파일에 있어도:**
 
 1. **Row Group 레벨: 순차 탐색 (피할 수 없음)**
    - Row Group 통계(min/max)를 통해 순차적으로 검사
