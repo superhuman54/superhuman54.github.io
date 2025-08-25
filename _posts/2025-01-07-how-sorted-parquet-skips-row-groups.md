@@ -11,11 +11,12 @@ keywords: "parquet, spark, performance, binary-search, push-down, row-group, bou
 
 "정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `orderBy()` 후 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
 
+<!-- more -->
+
 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 단순히 "정렬되어 있으니까 빠르다"는 설명으로는 부족했다. 실제로 어떤 알고리즘이 동작하고, 어떤 메타데이터가 저장되어 있는지 궁금했다.
 
 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
 
-<!-- more -->
 
 ## 개요
 
