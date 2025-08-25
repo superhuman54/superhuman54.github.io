@@ -9,13 +9,13 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-정렬된 Parquet 파일을 사용하면 쿼리 성능이 크게 향상된다는 건 알고 있지만, 정말 궁금한 건 어떻게 그게 가능한지다. 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보자. 단, 여기서는 쿼리 엔진이 이미 정렬된 데이터를 가정하고 있다.
+정렬된 Parquet 파일을 사용하면 쿼리 성능이 크게 향상된다는 건 알고 있지만, 정말 궁금한 건 어떻게 그게 가능한지다. 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보자.
 
 <!-- more -->
 
 ## 개요
 
-정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 불필요한 Row Group을 스킵함으로써 쿼리 성능을 크게 향상시킨다. 이 메커니즘의 핵심은 `BoundaryOrder`와 Column Index를 통한 효율적인 필터링이다. 쿼리 엔진은 이미 정렬된 데이터를 전제로 하여 Binary Search를 수행한다.
+정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 불필요한 Row Group을 스킵함으로써 쿼리 성능을 크게 향상시킨다. 이 메커니즘의 핵심은 `BoundaryOrder`와 Column Index를 통한 효율적인 필터링이다.
 
 ## Parquet 파일 구조와 Row Group
 
@@ -50,6 +50,158 @@ public enum BoundaryOrder {
 
 <div class="code-footer">
   <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
+</div>
+
+## BoundaryOrder는 Column Index에만 존재
+
+**중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**합니다. Row Group 레벨에는 정렬 정보가 저장되지 않습니다.
+
+```java
+// parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java
+public enum BoundaryOrder implements org.apache.thrift.TEnum {
+  UNORDERED(0),
+  ASCENDING(1), 
+  DESCENDING(2);
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java</span>
+</div>
+
+## Row Group 저장 시 메타데이터 구조
+
+Row Group을 저장할 때는 정렬 정보 없이 단순한 통계 정보만 저장됩니다:
+
+```java
+// parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java
+private void addRowGroup(
+    ParquetMetadata parquetMetadata,
+    List<RowGroup> rowGroups,
+    BlockMetaData block,
+    InternalFileEncryptor fileEncryptor) {
+
+  List<ColumnChunkMetaData> columns = block.getColumns();
+  List<ColumnChunk> parquetColumns = new ArrayList<ColumnChunk>();
+  
+  for (ColumnChunkMetaData columnMetaData : columns) {
+    ColumnChunk columnChunk = new ColumnChunk();
+    columnChunk.setFile_path(columnMetaData.getPath().toDotString());
+    columnChunk.setFile_offset(columnMetaData.getFirstDataPageOffset());
+    columnChunk.setMeta_data(columnMetaData.getParquetMetadata());
+    
+    // Column Index 정보 추가 (BoundaryOrder 포함)
+    if (columnMetaData.getColumnIndexReference() != null) {
+      columnChunk.setColumn_index_offset(columnMetaData.getColumnIndexReference().getOffset());
+      columnChunk.setColumn_index_length(columnMetaData.getColumnIndexReference().getLength());
+    }
+    
+    parquetColumns.add(columnChunk);
+  }
+  
+  // Row Group 생성 (정렬 정보 없음)
+  RowGroup rowGroup = new RowGroup(parquetColumns, block.getTotalByteSize(), block.getRowCount());
+  rowGroup.setFile_offset(block.getStartingPos());
+  rowGroup.setTotal_compressed_size(block.getCompressedSize());
+  rowGroup.setOrdinal((short) rowGroupOrdinal);
+  rowGroups.add(rowGroup);
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java</span>
+</div>
+
+**Row Group 저장 시 특징:**
+- **정렬 정보 없음**: Row Group 자체에는 `BoundaryOrder` 정보가 저장되지 않음
+- **통계 정보만**: Row Group은 단순한 통계 정보(min/max, 행 개수, 크기 등)만 저장
+- **Column Index 분리**: 정렬 정보는 Column Chunk 내의 Column Index에 별도로 저장
+
+## 1차 필터: 통계 기반 스킵
+
+Parquet는 세 단계의 필터링을 통해 Row Group을 효율적으로 스킵합니다:
+
+```java
+// parquet-hadoop/src/main/java/org/apache/parquet/filter2/compat/RowGroupFilter.java
+@Override
+public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredicateCompat) {
+  FilterPredicate filterPredicate = filterPredicateCompat.getFilterPredicate();
+  
+  List<BlockMetaData> filteredBlocks = new ArrayList<BlockMetaData>();
+
+  for (BlockMetaData block : blocks) {
+    boolean drop = false;
+
+    // 1. 통계 기반 스킵 (Statistics Level)
+    if (levels.contains(FilterLevel.STATISTICS)) {
+      drop = StatisticsFilter.canDrop(filterPredicate, block.getColumns());
+    }
+
+    // 2. 딕셔너리 기반 스킵 (Dictionary Level)
+    if (!drop && levels.contains(FilterLevel.DICTIONARY)) {
+      try (DictionaryPageReadStore dictionaryPageReadStore = reader.getDictionaryReader(block)) {
+        drop = DictionaryFilter.canDrop(filterPredicate, block.getColumns(), dictionaryPageReadStore);
+      }
+    }
+
+    // 3. 블룸 필터 기반 스킵 (Bloom Filter Level)
+    if (!drop && levels.contains(FilterLevel.BLOOMFILTER)) {
+      drop = BloomFilterImpl.canDrop(
+          filterPredicate, block.getColumns(), reader.getBloomFilterDataReader(block));
+    }
+
+    if (!drop) {
+      filteredBlocks.add(block);
+    }
+  }
+
+  return filteredBlocks;
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/compat/RowGroupFilter.java</span>
+</div>
+
+**통계 기반 스킵의 세 가지 단계:**
+
+1. **Statistics Level**: Row Group의 min/max 통계로 스킵 판단
+2. **Dictionary Level**: 딕셔너리 값으로 스킵 판단
+3. **Bloom Filter Level**: 블룸 필터로 스킵 판단
+
+**Statistics Level의 실제 동작:**
+
+```java
+// parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java
+@Override
+@SuppressWarnings("unchecked")
+public <T extends Comparable<T>> Boolean visit(Gt<T> gt) {
+  Column<T> filterColumn = gt.getColumn();
+  ColumnChunkMetaData meta = getColumnChunk(filterColumn.getColumnPath());
+  
+  Statistics<T> stats = meta.getStatistics();
+  T value = gt.getValue();
+
+  // 핵심 로직: value >= max이면 Row Group을 스킵
+  return stats.compareMaxToValue(value) <= 0;
+}
+
+@Override
+@SuppressWarnings("unchecked")
+public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
+  Column<T> filterColumn = lt.getColumn();
+  ColumnChunkMetaData meta = getColumnChunk(filterColumn.getColumnPath());
+  
+  Statistics<T> stats = meta.getStatistics();
+  T value = lt.getValue();
+
+  // 핵심 로직: value <= min이면 Row Group을 스킵
+  return stats.compareMinToValue(value) >= 0;
+}
+```
+
+<div class="code-footer">
+  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java</span>
 </div>
 
 ## BoundaryOrder 계산 과정
@@ -210,9 +362,9 @@ spark.conf.set("parquet.block.size", "50MB")
 val truncatedDF = df.withColumn("long_string", substring(col("long_string"), 1, 100))
 ```
 
-## ASCENDING 정렬된 Row Group에서 Binary Search
+## 2차 필터: ASCENDING 정렬된 Row Group에서 Binary Search
 
-쿼리 엔진은 ASCENDING 정렬된 Row Group에서 Binary Search를 수행할 때, 이미 정렬된 데이터임을 전제로 한다. 이 가정 하에서 효율적인 스킵이 가능하다.
+통계 기반 스킵 후, Column Index의 `BoundaryOrder`를 활용한 Binary Search가 수행됩니다.
 
 ### 1. gt (greater than) 연산
 
@@ -295,8 +447,6 @@ OfInt lt(ColumnIndexBase<?>.ValueComparator comparator) {
 </div>
 
 ## DESCENDING 정렬된 Row Group에서 역순 Binary Search
-
-쿼리 엔진은 DESCENDING 정렬된 Row Group에서도 마찬가지로 이미 정렬된 데이터임을 가정하고 역순 Binary Search를 수행한다.
 
 ### 1. gt (greater than) 연산
 
@@ -404,36 +554,16 @@ if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX
 
 Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않는다.
 
-## 실제 성능 향상 효과
-
-### 1. 정렬되지 않은 데이터
-- **필터링 방식**: 모든 Row Group을 순차적으로 검사
-- **시간 복잡도**: O(n)
-- **예시**: 100개 Row Group에서 `age > 120` 검색 시 모든 Row Group 검사
-
-### 2. 정렬된 데이터
-- **필터링 방식**: Binary Search로 효율적 검색
-- **시간 복잡도**: O(log n)
-- **예시**: 100개 Row Group에서 `age > 120` 검색 시 약 7개 Row Group만 검사
-
-### 3. 성능 비교
-
-| 데이터 크기 | 정렬되지 않은 데이터 | 정렬된 데이터 | 성능 향상 |
-|------------|-------------------|-------------|----------|
-| 1,000 Row Groups | 1,000 검사 | ~10 검사 | 100배 |
-| 10,000 Row Groups | 10,000 검사 | ~13 검사 | 770배 |
-| 100,000 Row Groups | 100,000 검사 | ~17 검사 | 5,880배 |
-
 ## 마무리
 
-정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 Row Group을 효율적으로 스킵할 수 있다. 이는 특히 대용량 데이터에서 쿼리 성능을 크게 향상시킨다. 쿼리 엔진이 정렬된 데이터를 가정하고 Binary Search를 수행하기 때문에 O(log n) 시간 복잡도로 효율적인 필터링이 가능하다.
+정렬된 Parquet 파일은 두 단계의 필터링을 통해 Row Group을 효율적으로 스킵할 수 있다. 첫 번째는 Row Group 레벨의 통계 정보를 활용한 순차 검색이고, 두 번째는 Column Index의 BoundaryOrder를 활용한 Binary Search이다.
 
 ### 핵심 포인트
-1. **ASCENDING 정렬**: 오름차순으로 Binary Search 수행
-2. **DESCENDING 정렬**: 내림차순으로 Binary Search 수행  
-3. **성능 향상**: O(n) → O(log n) 시간 복잡도 개선
-4. **쿼리 엔진 가정**: 정렬된 데이터를 전제로 Binary Search 수행
-5. **실용적 적용**: Spark에서 `orderBy()` 후 Parquet 저장
+1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group에는 정렬 정보가 저장되지 않음
+2. **1차 필터링**: Row Group 통계 정보로 순차 검색 (Statistics, Dictionary, Bloom Filter 레벨)
+3. **2차 필터링**: Column Index의 BoundaryOrder로 Binary Search 수행
+4. **Row Group 메타데이터**: 정렬 정보 없이 단순 통계만 저장
+5. **Column Index**: BoundaryOrder로 페이지 정렬 정보 저장
 6. **Column Index 제한**: 크기 제한으로 인한 BoundaryOrder 생성 실패 가능성 고려
 
-정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 크게 개선할 수 있다.
+정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 개선할 수 있다.
