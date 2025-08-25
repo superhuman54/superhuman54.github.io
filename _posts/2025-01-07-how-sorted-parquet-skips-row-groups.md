@@ -328,9 +328,8 @@ Row Group 순차 검색 과정:
 Row Group 레벨에서 순차 검색을 하는 이유는:
 
 1. **병렬 처리**: Row Group이 병렬 처리되기 때문에 Row Group 레벨의 정렬 정보는 비효율적
-2. **메타데이터 구조**: Row Group에는 정렬 정보가 저장되지 않는다
-3. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
-4. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
+2. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
+3. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
 
 ## 2차 필터: Column Index 레벨 Binary Search
 
@@ -374,6 +373,7 @@ Page 1: min=121, max=130
 Page 2: min=131, max=140
 Page 3: min=141, max=150
 ```
+
 
 **검색 조건: `age > 125`**
 
@@ -561,7 +561,7 @@ Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한
    - ASCENDING/DESCENDING 정렬된 페이지들을 Binary Search로 효율적 탐색
    - 정렬되지 않은 페이지들은 순차 탐색
 
-**핵심**: 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타납니다.
+**핵심**: 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타난다.
 
 - **Row Group 스킵**: 통계 기반 (정렬과 무관)
 - **Page 스킵**: BoundaryOrder 기반 (정렬 효과)
