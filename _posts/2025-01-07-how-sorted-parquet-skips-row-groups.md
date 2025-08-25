@@ -9,11 +9,13 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-"정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `orderBy()` 후 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
+## 이 글을 쓰게 된 동기
+
+데이터 엔지니어링을 하면서 항상 궁금했던 것이 있다. "정렬된 Parquet 파일이 정말로 성능이 좋다는데, 도대체 어떻게 그게 가능한 거지?"라는 질문이었다. 
 
 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 단순히 "정렬되어 있으니까 빠르다"는 설명으로는 부족했다. 실제로 어떤 알고리즘이 동작하고, 어떤 메타데이터가 저장되어 있는지 궁금했다.
 
-이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
+특히 Spark에서 `orderBy()` 후 Parquet로 저장하면 성능이 좋아진다는 건 알았지만, 그 뒤에 숨겨진 기술적 세부사항을 이해하고 싶었다. 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
 
 <!-- more -->
 
@@ -144,9 +146,10 @@ public enum BoundaryOrder implements org.apache.thrift.TEnum {
 
 Row Group은 단순한 통계 정보만 저장한다. 정렬 정보는 Column Index에 저장하는 이유는:
 
-1. **메모리 효율성**: Row Group 레벨에서 정렬 정보를 저장하면 메타데이터 크기가 커진다
-2. **유연성**: 같은 Row Group 내에서도 컬럼별로 다른 정렬 상태를 가질 수 있다
-3. **성능**: Column Index 레벨에서 Binary Search가 더 효율적이다
+1. **병렬 처리**: Row Group이 병렬 처리되기 때문에 Row Group 레벨의 정렬 정보는 비효율적
+2. **메모리 효율성**: Row Group 레벨에서 정렬 정보를 저장하면 메타데이터 크기가 커진다
+3. **유연성**: 같은 Row Group 내에서도 컬럼별로 다른 정렬 상태를 가질 수 있다
+4. **성능**: Column Index 레벨에서 Binary Search가 더 효율적이다
 
 ### 왜 Page에는 정렬 정보가 없을까?
 
@@ -323,175 +326,10 @@ Row Group 순차 검색 과정:
 
 Row Group 레벨에서 순차 검색을 하는 이유는:
 
-1. **메타데이터 구조**: Row Group에는 정렬 정보가 저장되지 않는다
-2. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
-3. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
-
-## BoundaryOrder 계산 과정
-
-### 1. Column Index 생성 시점
-
-`BoundaryOrder`는 Column Index가 생성될 때 자동으로 계산된다:
-
-```java
-public ColumnIndex build() {
-  ColumnIndexBase<?> columnIndex = build(type);
-  if (columnIndex == null) {
-    return null;
-  }
-  columnIndex.boundaryOrder = calculateBoundaryOrder(type.comparator());
-  return columnIndex;
-}
-
-private BoundaryOrder calculateBoundaryOrder(PrimitiveComparator<Binary> comparator) {
-  if (isAscending(comparator)) {
-    return BoundaryOrder.ASCENDING;
-  } else if (isDescending(comparator)) {
-    return BoundaryOrder.DESCENDING;
-  } else {
-    return BoundaryOrder.UNORDERED;
-  }
-}
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
-</div>
-
-### 2. 정렬 판단 로직
-
-```java
-// min[i] <= min[i+1] && max[i] <= max[i+1]
-private boolean isAscending(PrimitiveComparator<Binary> comparator) {
-  for (int i = 1, n = pageIndexes.size(); i < n; ++i) {
-    if (compareMinValues(comparator, i - 1, i) > 0 || compareMaxValues(comparator, i - 1, i) > 0) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// min[i] >= min[i+1] && max[i] >= max[i+1]
-private boolean isDescending(PrimitiveComparator<Binary> comparator) {
-  for (int i = 1, n = pageIndexes.size(); i < n; ++i) {
-    if (compareMinValues(comparator, i - 1, i) < 0 || compareMaxValues(comparator, i - 1, i) < 0) {
-      return false;
-    }
-  }
-  return true;
-}
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
-</div>
-
-### 정렬 판단의 세밀함
-
-정렬 판단은 매우 엄격하다:
-
-- **ASCENDING**: 모든 연속된 페이지 쌍에서 `min[i] <= min[i+1] && max[i] <= max[i+1]`이 성립해야 한다
-- **DESCENDING**: 모든 연속된 페이지 쌍에서 `min[i] >= min[i+1] && max[i] >= max[i+1]`이 성립해야 한다
-- **UNORDERED**: 위 조건들을 만족하지 않으면 UNORDERED로 판정된다
-
-## Column Index 크기 제한과 BoundaryOrder 생성
-
-### 1. Column Index 크기 제한 메커니즘
-
-Parquet에서 Column Index의 크기가 설정된 제한을 초과하면 `BoundaryOrder`가 포함된 Column Index 자체가 생성되지 않는다:
-
-```java
-public void endColumn() throws IOException {
-  state = state.endColumn();
-  LOG.debug("{}: end column", out.getPos());
-  
-  // Column Index 크기 체크
-  if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX_STATS_SIZE) {
-    currentColumnIndexes.add(null);  // Column Index 생성 안함
-  } else {
-    currentColumnIndexes.add(columnIndexBuilder.build());  // Column Index 생성 (BoundaryOrder 포함)
-  }
-  // ...
-}
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/hadoop/ParquetFileWriter.java</span>
-</div>
-
-### 2. MAX_STATS_SIZE 제한
-
-```java
-public static final int MAX_STATS_SIZE = 4096;  // 4KB
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java</span>
-</div>
-
-### 3. 크기 계산 방식
-
-`getMinMaxSize()`는 각 페이지의 min/max 값들의 총 크기를 계산한다:
-
-```java
-// IntColumnIndexBuilder의 경우
-public long getMinMaxSize() {
-  return (long) minValues.size() * Integer.BYTES + (long) maxValues.size() * Integer.BYTES;
-}
-
-// BinaryColumnIndexBuilder의 경우  
-public long getMinMaxSize() {
-  long minSizesSum = minValues.stream().mapToLong(Binary::length).sum();
-  long maxSizesSum = maxValues.stream().mapToLong(Binary::length).sum();
-  return minSizesSum + maxSizesSum;
-}
-```
-
-<div class="code-footer">
-  <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/IntColumnIndexBuilder.java</span>
-</div>
-
-### 4. 실제 예시
-
-**예시 1: Column Index 생성되는 경우**
-
-```
-페이지 수: 10개
-각 페이지 min/max 크기: 200 bytes (Integer 타입)
-총 크기: 10 × 200 = 2,000 bytes
-제한: 10 × 4,096 = 40,960 bytes
-결과: 2,000 < 40,960 → Column Index 생성됨 (BoundaryOrder 포함)
-```
-
-**예시 2: Column Index 생성되지 않는 경우**
-
-```
-페이지 수: 50개
-각 페이지 min/max 크기: 10,000 bytes (매우 긴 String)
-총 크기: 50 × 10,000 = 500,000 bytes
-제한: 50 × 4,096 = 204,800 bytes
-결과: 500,000 > 204,800 → Column Index 생성 안됨 (BoundaryOrder도 없음)
-```
-
-### 5. 영향과 대응 방안
-
-**Column Index가 생성되지 않을 때의 영향:**
-- `BoundaryOrder` 정보 없음
-- Binary Search 기반 필터링 불가능
-- 모든 Row Group을 순차적으로 검사해야 함
-- 성능 저하 발생
-
-**대응 방안:**
-```scala
-// 페이지 크기를 작게 설정하여 페이지 수 줄이기
-spark.conf.set("parquet.page.size", "1MB")
-
-// Row Group 크기를 조정하여 페이지 수 제어
-spark.conf.set("parquet.block.size", "50MB")
-
-// String 컬럼의 경우 길이 제한 고려
-val truncatedDF = df.withColumn("long_string", substring(col("long_string"), 1, 100))
-```
+1. **병렬 처리**: Row Group이 병렬 처리되기 때문에 Row Group 레벨의 정렬 정보는 비효율적
+2. **메타데이터 구조**: Row Group에는 정렬 정보가 저장되지 않는다
+3. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
+4. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
 
 ## 2차 필터: Column Index 레벨 Binary Search
 
@@ -691,18 +529,47 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 
 ### 핵심 포인트
 
-정렬된 Parquet 파일의 핵심은 **BoundaryOrder가 Column Index에만 존재**한다는 점이다. Row Group이나 Page에는 정렬 정보가 저장되지 않으며, 이는 메모리 효율성을 위한 설계 선택이다.
-
-필터링은 두 단계로 이루어진다. 첫 번째는 Row Group 통계 정보를 이용한 순차 검색으로, Statistics, Dictionary, Bloom Filter 레벨에서 수행된다. 두 번째는 Column Index의 BoundaryOrder를 활용한 Binary Search로, 이 단계에서 정렬의 진정한 효과가 나타난다.
-
-Row Group 메타데이터는 정렬 정보 없이 단순한 통계만 저장하지만, Column Index에는 BoundaryOrder가 저장되어 페이지 정렬 정보를 관리한다. 다만 Column Index는 크기 제한으로 인해 생성되지 않을 수 있으므로 이 점을 고려해야 한다.
+1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group이나 Page에는 정렬 정보가 저장되지 않음
+2. **1차 필터링**: Row Group 통계 정보로 순차 검색 (Statistics, Dictionary, Bloom Filter 레벨)
+3. **2차 필터링**: Column Index의 BoundaryOrder로 Binary Search 수행
+4. **Row Group 메타데이터**: 정렬 정보 없이 단순 통계만 저장
+5. **Column Index**: BoundaryOrder로 페이지 정렬 정보 저장
+6. **Column Index 제한**: 크기 제한으로 인한 BoundaryOrder 생성 실패 가능성 고려
 
 ### 왜 이렇게 설계했을까?
 
-Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다. Row Group 레벨에서는 단순한 통계 정보만 저장하여 메타데이터 크기를 최소화하고, Page 레벨에서는 정렬 정보 없이 데이터만 저장하여 중복을 제거한다. Column Index 레벨에서만 정렬 정보를 저장하여 Binary Search가 가능하도록 하면서, 크기 제한을 통해 메타데이터가 너무 커지는 것을 방지한다.
+Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다:
+
+- **Row Group 레벨**: 단순한 통계 정보만 저장하여 메타데이터 크기 최소화
+- **Page 레벨**: 정렬 정보 없이 데이터만 저장하여 중복 제거
+- **Column Index 레벨**: 정렬 정보를 저장하여 Binary Search 가능
+- **크기 제한**: 메타데이터 크기가 너무 커지는 것을 방지
+
+### 정렬된 데이터의 필터링 과정
+
+**age 컬럼이 하나의 Parquet 파일에서 정렬되어 있어도:**
+
+1. **Row Group 레벨: 순차 탐색 (피할 수 없음)**
+   - Row Group 통계(min/max)를 통해 순차적으로 검사
+   - 정렬 여부와 관계없이 모든 Row Group을 하나씩 확인
+   - 조건에 맞는 Row Group만 선택
+
+2. **Page 레벨: Binary Search (정렬 효과)**
+   - 선택된 Row Group 내부의 Column Index에서 `BoundaryOrder` 활용
+   - ASCENDING/DESCENDING 정렬된 페이지들을 Binary Search로 효율적 탐색
+   - 정렬되지 않은 페이지들은 순차 탐색
+
+**핵심**: 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타납니다.
+
+- **Row Group 스킵**: 통계 기반 (정렬과 무관)
+- **Page 스킵**: BoundaryOrder 기반 (정렬 효과)
 
 ### 실제 활용 시 고려사항
 
-정렬된 데이터의 이런 특성을 활용할 때는 몇 가지 고려사항이 있다. Column Index는 크기 제한으로 인해 생성되지 않을 수 있으므로, 너무 큰 페이지는 Column Index 생성 실패의 원인이 될 수 있다. 특히 String 컬럼의 경우 긴 String은 min/max 크기를 크게 만들어 Column Index 생성에 실패할 수 있으므로 주의가 필요하다.
+정렬된 데이터의 이런 특성을 활용할 때는 다음을 고려해야 한다:
+
+1. **Column Index 생성 여부**: 크기 제한으로 인해 생성되지 않을 수 있다
+2. **페이지 크기 조정**: 너무 큰 페이지는 Column Index 생성 실패의 원인이 될 수 있다
+3. **String 컬럼 주의**: 긴 String은 min/max 크기를 크게 만들어 Column Index 생성에 실패할 수 있다
 
 정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 개선할 수 있다. 하지만 단순히 "정렬하면 빠르다"가 아니라, 그 뒤에 숨겨진 기술적 세부사항을 이해하는 것이 중요하다.
