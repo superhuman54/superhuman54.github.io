@@ -36,16 +36,16 @@ Parquet File
 ├── File Header
 ├── Row Group 0
 │   ├── Column Chunk 0 (name)
-│   │   ├── Page 0 (min=Alice, max=Bob, BoundaryOrder=UNORDERED)
-│   │   ├── Page 1 (min=Charlie, max=David, BoundaryOrder=UNORDERED)
+│   │   ├── Page 0 (min=Alice, max=Bob)
+│   │   ├── Page 1 (min=Charlie, max=David)
 │   │   └── Column Index (BoundaryOrder=UNORDERED)
 │   ├── Column Chunk 1 (age)
-│   │   ├── Page 0 (min=10, max=30, BoundaryOrder=ASCENDING)
-│   │   ├── Page 1 (min=31, max=50, BoundaryOrder=ASCENDING)
+│   │   ├── Page 0 (min=10, max=30)
+│   │   ├── Page 1 (min=31, max=50)
 │   │   └── Column Index (BoundaryOrder=ASCENDING)
 │   └── Column Chunk 2 (city)
-│       ├── Page 0 (min=Seoul, max=Tokyo, BoundaryOrder=DESCENDING)
-│       ├── Page 1 (min=London, max=Paris, BoundaryOrder=DESCENDING)
+│       ├── Page 0 (min=Seoul, max=Tokyo)
+│       ├── Page 1 (min=London, max=Paris)
 │       └── Column Index (BoundaryOrder=DESCENDING)
 ├── Row Group 1
 │   ├── Column Chunk 0 (name)
@@ -74,11 +74,13 @@ Parquet File
 - 실제 데이터가 저장되는 최소 단위
 - 압축, 인코딩이 적용되는 레벨
 - 각 페이지마다 min/max 통계 정보
+- **중요**: Page 자체에는 BoundaryOrder 정보가 없다
 
 **4. Column Index**
 - 페이지 레벨의 정렬 정보 (`BoundaryOrder`) 포함
 - Binary Search를 위한 메타데이터
 - 페이지별 min/max 값들의 정렬 상태
+- **중요**: BoundaryOrder는 Column Index에만 존재한다
 
 **5. Offset Index**
 - 페이지의 물리적 위치 정보
@@ -125,7 +127,7 @@ public enum BoundaryOrder {
 
 ## BoundaryOrder는 Column Index에만 존재
 
-**중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**한다. Row Group 레벨에는 정렬 정보가 저장되지 않는다.
+**중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**한다. Row Group 레벨이나 Page 레벨에는 정렬 정보가 저장되지 않는다.
 
 ```java
 // parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java
@@ -147,6 +149,14 @@ Row Group은 단순한 통계 정보만 저장한다. 정렬 정보는 Column In
 1. **메모리 효율성**: Row Group 레벨에서 정렬 정보를 저장하면 메타데이터 크기가 커진다
 2. **유연성**: 같은 Row Group 내에서도 컬럼별로 다른 정렬 상태를 가질 수 있다
 3. **성능**: Column Index 레벨에서 Binary Search가 더 효율적이다
+
+### 왜 Page에는 정렬 정보가 없을까?
+
+Page 레벨에서도 정렬 정보를 저장하지 않는 이유는:
+
+1. **중복 제거**: Column Index에서 이미 페이지들의 정렬 상태를 관리한다
+2. **메모리 효율성**: 각 페이지마다 정렬 정보를 저장하면 메타데이터 크기가 커진다
+3. **일관성**: Column Index에서 페이지들의 전체적인 정렬 상태를 한 번에 관리하는 것이 더 효율적이다
 
 ## Row Group 저장 시 메타데이터 구조
 
@@ -657,7 +667,7 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 
 ### 핵심 포인트
 
-1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group에는 정렬 정보가 저장되지 않음
+1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group이나 Page에는 정렬 정보가 저장되지 않음
 2. **1차 필터링**: Row Group 통계 정보로 순차 검색 (Statistics, Dictionary, Bloom Filter 레벨)
 3. **2차 필터링**: Column Index의 BoundaryOrder로 Binary Search 수행
 4. **Row Group 메타데이터**: 정렬 정보 없이 단순 통계만 저장
@@ -669,6 +679,7 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다:
 
 - **Row Group 레벨**: 단순한 통계 정보만 저장하여 메타데이터 크기 최소화
+- **Page 레벨**: 정렬 정보 없이 데이터만 저장하여 중복 제거
 - **Column Index 레벨**: 정렬 정보를 저장하여 Binary Search 가능
 - **크기 제한**: 메타데이터 크기가 너무 커지는 것을 방지
 
