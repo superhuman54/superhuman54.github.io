@@ -9,7 +9,13 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-정렬된 Parquet 파일을 사용하면 쿼리 성능이 크게 향상된다는 건 알고 있지만, 정말 궁금한 건 어떻게 그게 가능한지다. 분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보자.
+## 이 글을 쓰게 된 동기
+
+데이터 엔지니어링을 하면서 항상 궁금했던 것이 있다. "정렬된 Parquet 파일이 정말로 성능이 좋다는데, 도대체 어떻게 그게 가능한 거지?"라는 질문이었다. 
+
+분명히 어떤 Row Group들은 조건에 맞지 않아서 skip될 텐데, 어떤 메타데이터 덕분에 그런 판단이 가능했을까? 단순히 "정렬되어 있으니까 빠르다"는 설명으로는 부족했다. 실제로 어떤 알고리즘이 동작하고, 어떤 메타데이터가 저장되어 있는지 궁금했다.
+
+특히 Spark에서 `orderBy()` 후 Parquet로 저장하면 성능이 좋아진다는 건 알았지만, 그 뒤에 숨겨진 기술적 세부사항을 이해하고 싶었다. 이 글에서는 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지, 그리고 그 뒤에 숨겨진 Binary Search 알고리즘을 자세히 살펴보려고 한다.
 
 <!-- more -->
 
@@ -17,24 +23,81 @@ keywords: "parquet, spark, performance, binary-search, push-down, row-group, bou
 
 정렬된 Parquet 파일은 Binary Search 알고리즘을 활용해서 불필요한 Row Group을 스킵함으로써 쿼리 성능을 크게 향상시킨다. 이 메커니즘의 핵심은 `BoundaryOrder`와 Column Index를 통한 효율적인 필터링이다.
 
-## Parquet 파일 구조와 Row Group
+하지만 여기서 중요한 점은, Row Group 레벨에서는 여전히 순차 검색을 한다는 것이다. 정렬의 진정한 효과는 Column Index 레벨에서 나타난다. 이 글을 통해 Parquet의 내부 구조와 필터링 메커니즘을 정확히 이해해보자.
+
+## Parquet 파일 구조 상세 분석
+
+### 기본 계층 구조
 
 Parquet 파일은 다음과 같은 계층 구조를 가진다:
 
 ```
 Parquet File
+├── File Header
 ├── Row Group 0
 │   ├── Column Chunk 0 (name)
+│   │   ├── Page 0 (min=Alice, max=Bob, BoundaryOrder=UNORDERED)
+│   │   ├── Page 1 (min=Charlie, max=David, BoundaryOrder=UNORDERED)
+│   │   └── Column Index (BoundaryOrder=UNORDERED)
 │   ├── Column Chunk 1 (age)
+│   │   ├── Page 0 (min=10, max=30, BoundaryOrder=ASCENDING)
+│   │   ├── Page 1 (min=31, max=50, BoundaryOrder=ASCENDING)
+│   │   └── Column Index (BoundaryOrder=ASCENDING)
 │   └── Column Chunk 2 (city)
+│       ├── Page 0 (min=Seoul, max=Tokyo, BoundaryOrder=DESCENDING)
+│       ├── Page 1 (min=London, max=Paris, BoundaryOrder=DESCENDING)
+│       └── Column Index (BoundaryOrder=DESCENDING)
 ├── Row Group 1
 │   ├── Column Chunk 0 (name)
 │   ├── Column Chunk 1 (age)
 │   └── Column Chunk 2 (city)
-└── ...
+└── File Footer
+    ├── Row Group Metadata
+    ├── Column Index Metadata
+    └── Offset Index Metadata
 ```
 
-각 Row Group은 독립적으로 처리될 수 있고, 이것이 병렬 처리와 필터링 최적화의 핵심이다.
+### 각 구성 요소의 역할
+
+**1. Row Group (Row Group)**
+- Parquet 파일을 논리적으로 나누는 단위
+- 독립적으로 처리 가능한 데이터 블록
+- 통계 정보만 저장 (min/max, 행 개수, 크기)
+- **중요**: Row Group 자체에는 정렬 정보가 없다
+
+**2. Column Chunk (Column Chunk)**
+- 하나의 컬럼에 대한 데이터 블록
+- Row Group 내에서 컬럼별로 분리
+- Column Index와 Offset Index를 포함
+
+**3. Page (Page)**
+- 실제 데이터가 저장되는 최소 단위
+- 압축, 인코딩이 적용되는 레벨
+- 각 페이지마다 min/max 통계 정보
+
+**4. Column Index**
+- 페이지 레벨의 정렬 정보 (`BoundaryOrder`) 포함
+- Binary Search를 위한 메타데이터
+- 페이지별 min/max 값들의 정렬 상태
+
+**5. Offset Index**
+- 페이지의 물리적 위치 정보
+- 실제 데이터 접근을 위한 오프셋
+
+### 메타데이터 저장 위치
+
+```
+File Footer
+├── Row Group Metadata
+│   ├── Row Group 0: min/max, 행 개수, 크기 (정렬 정보 없음)
+│   └── Row Group 1: min/max, 행 개수, 크기 (정렬 정보 없음)
+├── Column Index Metadata
+│   ├── Column Chunk 0: BoundaryOrder=UNORDERED
+│   ├── Column Chunk 1: BoundaryOrder=ASCENDING
+│   └── Column Chunk 2: BoundaryOrder=DESCENDING
+└── Offset Index Metadata
+    └── 페이지별 물리적 위치 정보
+```
 
 ## 정렬된 데이터의 BoundaryOrder
 
@@ -52,9 +115,17 @@ public enum BoundaryOrder {
   <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/BoundaryOrder.java</span>
 </div>
 
+### BoundaryOrder의 의미
+
+**UNORDERED**: 페이지들이 임의의 순서로 배치되어 있다. 필터링 시 모든 페이지를 순차적으로 검사해야 한다.
+
+**ASCENDING**: 페이지들이 오름차순으로 정렬되어 있다. Binary Search를 통해 효율적인 필터링이 가능하다.
+
+**DESCENDING**: 페이지들이 내림차순으로 정렬되어 있다. 역순 Binary Search를 통해 효율적인 필터링이 가능하다.
+
 ## BoundaryOrder는 Column Index에만 존재
 
-**중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**합니다. Row Group 레벨에는 정렬 정보가 저장되지 않습니다.
+**중요한 점**: `BoundaryOrder`는 Parquet 포맷 스펙에서 정의된 enum으로, **Column Index에만 존재**한다. Row Group 레벨에는 정렬 정보가 저장되지 않는다.
 
 ```java
 // parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java
@@ -69,9 +140,17 @@ public enum BoundaryOrder implements org.apache.thrift.TEnum {
   <span class="file-path">parquet-format-structures/target/generated-sources/thrift/org/apache/parquet/format/BoundaryOrder.java</span>
 </div>
 
+### 왜 Row Group에는 정렬 정보가 없을까?
+
+Row Group은 단순한 통계 정보만 저장한다. 정렬 정보는 Column Index에 저장하는 이유는:
+
+1. **메모리 효율성**: Row Group 레벨에서 정렬 정보를 저장하면 메타데이터 크기가 커진다
+2. **유연성**: 같은 Row Group 내에서도 컬럼별로 다른 정렬 상태를 가질 수 있다
+3. **성능**: Column Index 레벨에서 Binary Search가 더 효율적이다
+
 ## Row Group 저장 시 메타데이터 구조
 
-Row Group을 저장할 때는 정렬 정보 없이 단순한 통계 정보만 저장됩니다:
+Row Group을 저장할 때는 정렬 정보 없이 단순한 통계 정보만 저장된다:
 
 ```java
 // parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java
@@ -119,7 +198,9 @@ private void addRowGroup(
 
 ## 1차 필터: 통계 기반 스킵
 
-Parquet는 세 단계의 필터링을 통해 Row Group을 효율적으로 스킵합니다:
+Parquet는 세 단계의 필터링을 통해 Row Group을 효율적으로 스킵한다. 이 과정에서 Row Group은 정렬 여부와 관계없이 순차적으로 검사된다.
+
+### 필터링 단계
 
 ```java
 // parquet-hadoop/src/main/java/org/apache/parquet/filter2/compat/RowGroupFilter.java
@@ -169,7 +250,7 @@ public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredic
 2. **Dictionary Level**: 딕셔너리 값으로 스킵 판단
 3. **Bloom Filter Level**: 블룸 필터로 스킵 판단
 
-**Statistics Level의 실제 동작:**
+### Statistics Level의 실제 동작
 
 ```java
 // parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java
@@ -203,6 +284,14 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
 <div class="code-footer">
   <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java</span>
 </div>
+
+### 왜 Row Group 레벨에서는 순차 검색을 할까?
+
+Row Group 레벨에서 순차 검색을 하는 이유는:
+
+1. **메타데이터 구조**: Row Group에는 정렬 정보가 저장되지 않는다
+2. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
+3. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
 
 ## BoundaryOrder 계산 과정
 
@@ -262,6 +351,14 @@ private boolean isDescending(PrimitiveComparator<Binary> comparator) {
 <div class="code-footer">
   <span class="file-path">parquet-column/org/apache/parquet/internal/column/columnindex/ColumnIndexBuilder.java</span>
 </div>
+
+### 정렬 판단의 세밀함
+
+정렬 판단은 매우 엄격하다:
+
+- **ASCENDING**: 모든 연속된 페이지 쌍에서 `min[i] <= min[i+1] && max[i] <= max[i+1]`이 성립해야 한다
+- **DESCENDING**: 모든 연속된 페이지 쌍에서 `min[i] >= min[i+1] && max[i] >= max[i+1]`이 성립해야 한다
+- **UNORDERED**: 위 조건들을 만족하지 않으면 UNORDERED로 판정된다
 
 ## Column Index 크기 제한과 BoundaryOrder 생성
 
@@ -364,7 +461,7 @@ val truncatedDF = df.withColumn("long_string", substring(col("long_string"), 1, 
 
 ## 2차 필터: ASCENDING 정렬된 Row Group에서 Binary Search
 
-통계 기반 스킵 후, Column Index의 `BoundaryOrder`를 활용한 Binary Search가 수행됩니다.
+통계 기반 스킵 후, Column Index의 `BoundaryOrder`를 활용한 Binary Search가 수행된다. 이 단계에서 정렬의 진정한 효과가 나타난다.
 
 ### 1. gt (greater than) 연산
 
@@ -554,11 +651,12 @@ if (columnIndexBuilder.getMinMaxSize() > columnIndexBuilder.getPageCount() * MAX
 
 Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않는다.
 
-## 마무리
+## 정리
 
-정렬된 Parquet 파일은 두 단계의 필터링을 통해 Row Group을 효율적으로 스킵할 수 있다. 첫 번째는 Row Group 레벨의 통계 정보를 활용한 순차 검색이고, 두 번째는 Column Index의 BoundaryOrder를 활용한 Binary Search이다.
+이 글을 통해 정렬된 Parquet 파일이 어떻게 Row Group을 효율적으로 스킵하는지 자세히 살펴봤다. 핵심은 두 단계의 필터링 메커니즘이다.
 
 ### 핵심 포인트
+
 1. **BoundaryOrder 위치**: Column Index에만 존재하며, Row Group에는 정렬 정보가 저장되지 않음
 2. **1차 필터링**: Row Group 통계 정보로 순차 검색 (Statistics, Dictionary, Bloom Filter 레벨)
 3. **2차 필터링**: Column Index의 BoundaryOrder로 Binary Search 수행
@@ -566,4 +664,20 @@ Column Index의 크기가 4KB × 페이지 수를 초과하면 생성되지 않�
 5. **Column Index**: BoundaryOrder로 페이지 정렬 정보 저장
 6. **Column Index 제한**: 크기 제한으로 인한 BoundaryOrder 생성 실패 가능성 고려
 
-정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 개선할 수 있다.
+### 왜 이렇게 설계했을까?
+
+Parquet의 이런 설계는 메모리 효율성과 성능의 균형을 고려한 결과다:
+
+- **Row Group 레벨**: 단순한 통계 정보만 저장하여 메타데이터 크기 최소화
+- **Column Index 레벨**: 정렬 정보를 저장하여 Binary Search 가능
+- **크기 제한**: 메타데이터 크기가 너무 커지는 것을 방지
+
+### 실제 활용 시 고려사항
+
+정렬된 데이터의 이런 특성을 활용할 때는 다음을 고려해야 한다:
+
+1. **Column Index 생성 여부**: 크기 제한으로 인해 생성되지 않을 수 있다
+2. **페이지 크기 조정**: 너무 큰 페이지는 Column Index 생성 실패의 원인이 될 수 있다
+3. **String 컬럼 주의**: 긴 String은 min/max 크기를 크게 만들어 Column Index 생성에 실패할 수 있다
+
+정렬된 데이터의 이런 특성을 활용하면 데이터 웨어하우스나 빅데이터 환경에서 쿼리 성능을 개선할 수 있다. 하지만 단순히 "정렬하면 빠르다"가 아니라, 그 뒤에 숨겨진 기술적 세부사항을 이해하는 것이 중요하다.
