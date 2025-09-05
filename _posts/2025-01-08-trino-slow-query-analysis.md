@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Trino 느린 쿼리 분석: 실제 사례를 통한 성능 최적화 가이드"
+title: "Trino 느린 쿼리 분석과 성능 최적화"
 date: 2025-01-08 12:00:00 +0900
 categories: [Trino, Performance, Query Optimization]
 tags: [trino, presto, query-optimization, performance, slow-query, analysis, troubleshooting, glue-catalog, metastore]
@@ -14,8 +14,6 @@ Trino 클러스터를 운영하다 보면 예상보다 느린 쿼리들을 마�
 <!-- more -->
 
 이 글에서는 실제 운영 환경에서 발생한 Trino 느린 쿼리 문제를 해결한 과정을 다룬다. JVM 프로파일링을 통한 정확한 병목 지점 파악부터 메타스토어 최적화까지, 42초에서 3초로 성능을 개선한 실전 경험을 공유한다.
-
-## 실제 사례: 42초에서 3초로 단축한 쿼리 최적화
 
 ### 문제
 
