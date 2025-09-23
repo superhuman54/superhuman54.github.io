@@ -312,11 +312,11 @@ Row Group 4: min=201, max=250
 **검색 조건: `age > 120`**
 
 Row Group 순차 검색 과정:
-1. **Row Group 0 검사**: max=50 >= 120? → false → 스킵
-2. **Row Group 1 검사**: max=100 >= 120? → false → 스킵
-3. **Row Group 2 검사**: max=150 >= 120? → true → 포함
-4. **Row Group 3 검사**: max=200 >= 120? → true → 포함
-5. **Row Group 4 검사**: max=250 >= 120? → true → 포함
+1. **Row Group 0 검사**: max=50 > 120? → false → 스킵
+2. **Row Group 1 검사**: max=100 > 120? → false → 스킵
+3. **Row Group 2 검사**: max=150 > 120? → true → 포함
+4. **Row Group 3 검사**: max=200 > 120? → true → 포함
+5. **Row Group 4 검사**: max=250 > 120? → true → 포함
 
 **결과**: Row Group 2, 3, 4만 선택됨 (Row Group 0, 1은 스킵)
 
