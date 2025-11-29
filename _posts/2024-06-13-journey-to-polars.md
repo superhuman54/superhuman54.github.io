@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Journey to Polars: PySpark에서 Polars로의 마이그레이션"
+title: "PySpark에서 Polars로의 마이그레이션"
 date: 2024-06-13 12:00:00 +0900
 categories: [Data Engineering, Performance]
 tags: [polars, pyspark, spark, performance, optimization, data-engineering, single-node, arrow, parquet, emr]
