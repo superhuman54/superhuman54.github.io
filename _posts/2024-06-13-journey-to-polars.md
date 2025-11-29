@@ -155,6 +155,38 @@ Parquet 변환 과정은 16 병렬 프로세스로 처리했다.
 
 Spark는 Driver 노드(Primary)와 Executor 노드(Core)를 별도로 운영해야 하지만, Polars는 단일 노드에서 모든 작업을 처리한다.
 
+**3. 실제 배포: EKS Pod 기반 운영**
+
+Polars 워크플로우는 EKS(Elastic Kubernetes Service) Pod로 구동시켰다. 최적 구성인 4코어 16GB 스펙(m7g.xlarge)을 보장하기 위해 **Dedicated K8s Node**를 프로비저닝했다.
+
+```yaml
+# Pod 리소스 요청
+resources:
+  requests:
+    cpu: "4"
+    memory: "16Gi"
+  limits:
+    cpu: "4"
+    memory: "16Gi"
+```
+
+여기서 중요한 점은 Node Selector와 Taint/Toleration을 사용해 특정 EC2 인스턴스에만 배포되도록 보장한 것이다. 다른 워크로드가 동일 노드에서 실행되면 Polars의 성능이 영향을 받을 수 있기 때문이다.
+
+```yaml
+# Node Selector로 전용 노드 지정
+nodeSelector:
+  workload-type: polars-dedicated
+
+# Toleration으로 전용 노드 접근
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "charts-by-age-polars"
+    effect: "NoSchedule"
+```
+
+이렇게 하면 Fault Tolerance도 확보할 수 있다. K8s가 Pod 장애를 감지하면 자동으로 재시작하고, 노드 장애 시에도 다른 Dedicated 노드로 재스케줄링된다.
+
 ## 성과
 
 ### 수행 시간 단축
