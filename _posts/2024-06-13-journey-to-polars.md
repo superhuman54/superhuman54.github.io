@@ -222,12 +222,6 @@ ORC 파일을 클라우드에서 다운로드하면서 동시에 Parquet로 변�
 - 긴 SQL은 유지보수가 어려울 수 있음
 - IDE의 코드 자동완성 지원이 제한적
 
-### 3. PySpark의 Arrow 최적화
-
-PySpark도 Python ↔ JVM 간에 Apache Arrow를 활용하여 성능을 향상시킬 수 있다. Pandas UDF와 `spark.sql.execution.arrow.pyspark.enabled` 설정을 통해 데이터 직렬화 오버헤드를 줄일 수 있다.
-
-참고: [Apache Spark - Arrow Pandas UDF](https://spark.apache.org/docs/latest/api/python/user_guide/sql/arrow_pandas.html)
-
 ## 결론
 
 "모든 데이터 작업에 분산 처리가 필요한가?"라는 질문에서 시작된 이 프로젝트는 명확한 답을 제시했다. **작은 규모의 워크로드에는 단일 노드 엔진이 더 효율적이다.**
