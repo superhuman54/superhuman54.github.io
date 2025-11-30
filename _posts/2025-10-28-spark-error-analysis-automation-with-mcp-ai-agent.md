@@ -7,6 +7,7 @@ tags: [spark, mcp, ai-agent, n8n, openai, sparklistener, debugging, automation, 
 author: K4N
 description: "SparkListener와 MCP(Model Context Protocol)를 활용하여 Spark 작업 실패를 자동으로 감지하고 AI가 원인을 분석하여 해결책을 제시하는 시스템을 구축한 경험을 공유합니다."
 keywords: "spark, mcp, model context protocol, ai agent, n8n, openai, sparklistener, debugging, automation, emr, spark history server, troubleshooting"
+published: false
 ---
 
 우리 팀은 매일 수십 개의 Spark 배치 작업을 운영하고 있다. 추천 모델 학습, 사용자 행동 데이터 집계, 데이터마트 생성, 사용자 추천 데이터 추출 등 다양한 ETL 파이프라인이 Amazon EMR 클러스터에서 돌아가고 있다. 그런데 이 Spark 작업들이 실패하면... 정말 머리가 아프다.
