@@ -408,16 +408,18 @@ Column Index Binary Search 과정:
 
 ```scala
 // 오름차순 정렬
-val sortedDF = df.orderBy("age")
-sortedDF.write.parquet("/path/to/output")
-
-// 내림차순 정렬
-val sortedDFDesc = df.orderBy(col("age").desc)
-sortedDFDesc.write.parquet("/path/to/output")
+val sortedDF = (df.write
+    .format("parquet")
+    .mode("overwrite")
+    .sortBy("age")
+    .saveAsTable("my_database.my_table"))
 
 // 여러 컬럼 정렬
-val multiSortedDF = df.orderBy("age", "name")
-multiSortedDF.write.parquet("/path/to/output")
+val sortedDF = (df.write
+    .format("parquet")
+    .mode("overwrite")
+    .sortBy("age", "name")
+    .saveAsTable("my_database.my_table"))
 ```
 
 
