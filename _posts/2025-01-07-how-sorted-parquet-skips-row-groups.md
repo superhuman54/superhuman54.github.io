@@ -302,23 +302,25 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
 ASCENDING 정렬된 age 컬럼이 있다고 가정해보자.
 
 ```
-Row Group 0: min=10, max=50
-Row Group 1: min=51, max=100  
-Row Group 2: min=101, max=150
-Row Group 3: min=151, max=200
-Row Group 4: min=201, max=250
+Row Group 0: min=10, max=100
+Row Group 1: min=101, max=200  
+Row Group 2: min=201, max=300
+Row Group 3: min=301, max=400
+Row Group 4: min=401, max=500
+Row Group 5: min=501, max=600
+Row Group 6: min=601, max=700
+Row Group 7: min=701, max=800
 ```
 
-**검색 조건: `age > 120`**
+**검색 조건: `age > 650`**
 
 Row Group 순차 검색 과정:
-1. **Row Group 0 검사**: max=50 > 120? → false → 스킵
-2. **Row Group 1 검사**: max=100 > 120? → false → 스킵
-3. **Row Group 2 검사**: max=150 > 120? → true → 포함
-4. **Row Group 3 검사**: max=200 > 120? → true → 포함
-5. **Row Group 4 검사**: max=250 > 120? → true → 포함
+1. **Row Group 0~5 검사**: 각각 max ≤ 600 → 모두 스킵
+2. **Row Group 6 검사**: max=700 > 650? → true → 포함
+3. **Row Group 7 검사**: max=800 > 650? → true → 포함
 
-**결과**: Row Group 2, 3, 4만 선택됨 (Row Group 0, 1은 스킵)
+**결과**: Row Group 6, 7만 선택됨 (Row Group 0~5는 모두 스킵)
+**성능 향상**: 8개 Row Group 중 6개 스킵 (75% 데이터 블록 절약!)
 
 **중요**: 정렬된 데이터라도 Row Group 레벨에서는 순차 검색을 한다. 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타난다.
 
@@ -363,33 +365,35 @@ OfInt gt(ColumnIndexBase<?>.ValueComparator comparator) {
 
 ### 2. 실제 예시
 
-통과한 Row Group 2 내부의 페이지들이 ASCENDING 정렬되어 있다고 가정해보자.
+통과한 Row Group 6 내부의 페이지들이 ASCENDING 정렬되어 있다고 가정해보자.
 
 ```
-Row Group 2 내부 페이지들:
-Page 0: min=101, max=120
-Page 1: min=121, max=130
-Page 2: min=131, max=140
-Page 3: min=141, max=150
+Row Group 6 내부 페이지들 (총 8개 페이지):
+Page 0: min=601, max=612
+Page 1: min=613, max=625
+Page 2: min=626, max=637
+Page 3: min=638, max=650
+Page 4: min=651, max=662
+Page 5: min=663, max=675
+Page 6: min=676, max=687
+Page 7: min=688, max=700
 ```
 
 
-**검색 조건: `age > 125`**
+**검색 조건: `age > 650`**
 
 Column Index Binary Search 과정:
-1. **초기 상태**: left=0, right=4
-2. **중간값 계산**: i = floorMid(0, 4) = 2
-3. **Page 2 검사**: max=140 >= 125? → true → right=2
-4. **중간값 계산**: i = floorMid(0, 2) = 1
-5. **Page 1 검사**: max=130 >= 125? → true → right=1
-6. **중간값 계산**: i = floorMid(0, 1) = 0
-7. **Page 0 검사**: max=120 >= 125? → false → right=0
-8. **결과**: right=0부터 끝까지 (Page 1, 2, 3)
+1. **초기 상태**: left=0, right=8
+2. **중간값 계산**: i = floorMid(0, 8) = 4
+3. **Page 4 검사**: max=662 >= 650? → true → right=4
+4. **중간값 계산**: i = floorMid(0, 4) = 2
+5. **Page 2 검사**: max=637 >= 650? → false → left=3
+6. **중간값 계산**: i = floorMid(3, 4) = 3
+7. **Page 3 검사**: max=650 >= 650? → false → left=4
+8. **결과**: right=4부터 끝까지 (Page 4, 5, 6, 7)
 
-**최종 결과**: Page 1, 2, 3만 읽는다 (Page 0은 스킵)
-
-
-
+**최종 결과**: Page 4, 5, 6, 7만 읽는다 (Page 0, 1, 2, 3은 모두 스킵)
+**성능 향상**: 8개 페이지 중 4개 페이지 스킵 (50% I/O 절약!)
 
 
 ## Spark에서 정렬된 Parquet 생성하기
@@ -410,17 +414,6 @@ val multiSortedDF = df.orderBy("age", "name")
 multiSortedDF.write.parquet("/path/to/output")
 ```
 
-### 2. Java 예시
-
-```java
-// 오름차순 정렬
-Dataset<Row> sortedDF = df.orderBy("age");
-sortedDF.write().parquet("/path/to/output");
-
-// 내림차순 정렬
-Dataset<Row> sortedDFDesc = df.orderBy(functions.col("age").desc());
-sortedDFDesc.write().parquet("/path/to/output");
-```
 
 ## 성능 최적화 팁
 
@@ -428,6 +421,7 @@ sortedDFDesc.write().parquet("/path/to/output");
 
 ```scala
 // 페이지 크기를 작게 설정하여 정렬 효과 극대화
+// 작은 페이지 = 더 많은 페이지 = 더 세밀한 범위 필터링 가능
 spark.conf.set("parquet.page.size", "1MB")
 spark.conf.set("parquet.block.size", "10MB")
 ```
