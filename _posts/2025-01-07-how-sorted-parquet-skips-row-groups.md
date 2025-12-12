@@ -265,6 +265,8 @@ public List<BlockMetaData> visit(FilterCompat.FilterPredicateCompat filterPredic
 
 ### Statistics Level의 실제 동작
 
+Row Group 레벨에서는 **단순한 min/max 비교**만으로 필터링을 수행한다. 정렬 여부와 관계없이 각 Row Group의 통계 정보만 사용한다.
+
 ```java
 @Override
 @SuppressWarnings("unchecked")
@@ -276,6 +278,7 @@ public <T extends Comparable<T>> Boolean visit(Gt<T> gt) {
   T value = gt.getValue();
 
   // 핵심 로직: value >= max이면 Row Group을 스킵
+  // 정렬 여부와 무관하게 단순 min/max 비교만 수행
   return stats.compareMaxToValue(value) <= 0;
 }
 
@@ -289,6 +292,7 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
   T value = lt.getValue();
 
   // 핵심 로직: value <= min이면 Row Group을 스킵
+  // 정렬 여부와 무관하게 단순 min/max 비교만 수행
   return stats.compareMinToValue(value) >= 0;
 }
 ```
@@ -296,6 +300,8 @@ public <T extends Comparable<T>> Boolean visit(Lt<T> lt) {
 <div class="code-footer">
   <span class="file-path">parquet-hadoop/src/main/java/org/apache/parquet/filter2/statisticslevel/StatisticsFilter.java</span>
 </div>
+
+Row Group 레벨에서는 **정렬 정보를 전혀 사용하지 않는다**. 단순히 각 Row Group의 min/max 통계만으로 스킵 여부를 결정한다.
 
 ### Row Group 순차 검색의 실제 예시
 
@@ -319,17 +325,16 @@ Row Group 순차 검색 과정:
 2. **Row Group 6 검사**: max=700 > 650? → true → 포함
 3. **Row Group 7 검사**: max=800 > 650? → true → 포함
 
-**결과**: Row Group 6, 7만 선택됨 (Row Group 0~5는 모두 스킵)
-**성능 향상**: 8개 Row Group 중 6개 스킵 (75% 데이터 블록 절약!)
+그 결과 **Row Group 6, 7**만 선택된다(Row Group 0~5는 모두 스킵). 8개 Row Group 중 6개 스킵 (75% 데이터 블록 절약!)
 
-**중요**: 정렬된 데이터라도 Row Group 레벨에서는 순차 검색을 한다. 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타난다.
+한번 더 말하지만, 정렬된 데이터라도 Row Group 레벨에서는 순차 검색을 한다. 정렬의 효과는 Row Group을 스킵하는 것이 아니라, 통과한 Row Group 내부의 페이지 필터링에서 나타난다.
 
 ### 왜 Row Group 레벨에서는 순차 검색을 할까?
 
 Row Group 레벨에서 순차 검색을 하는 이유는:
 
 1. **병렬 처리**: Row Group이 병렬 처리되기 때문에 Row Group 레벨의 정렬 정보는 비효율적
-2. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다
+2. **메모리 효율성**: Row Group 수가 많을 때 정렬 정보를 저장하면 메타데이터 크기가 커진다(미미하겠지만..)
 3. **실용성**: 대부분의 경우 Row Group 수가 많지 않아 순차 검색으로도 충분하다
 
 ## 2차 필터: Column Index 레벨 Binary Search
@@ -393,7 +398,8 @@ Column Index Binary Search 과정:
 8. **결과**: right=4부터 끝까지 (Page 4, 5, 6, 7)
 
 **최종 결과**: Page 4, 5, 6, 7만 읽는다 (Page 0, 1, 2, 3은 모두 스킵)
-**성능 향상**: 8개 페이지 중 4개 페이지 스킵 (50% I/O 절약!)
+**성능 향상**: 8개 페이지 중 4개 페이지 스킵 (50% I/O 절약!).
+만약 페이지가 100개이고 정렬이 되지 않았다면, 모든 페이지를 탐색해야한다.
 
 
 ## Spark에서 정렬된 Parquet 생성하기
