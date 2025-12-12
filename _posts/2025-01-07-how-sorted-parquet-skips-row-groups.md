@@ -9,7 +9,7 @@ description: "정렬된 Parquet 파일에서 Binary Search를 활용한 Row Grou
 keywords: "parquet, spark, performance, binary-search, push-down, row-group, boundary-order, column-index"
 ---
 
-"정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `orderBy()` 후 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
+"정렬된 Parquet 파일이 성능이 좋다"는 말을 자주 들었다. Spark에서 `sortBy()` 후(`orderBy()` 아님 주의!) 저장하면 쿼리가 빨라진다는 건 알았지만, 도대체 어떻게 그게 가능한 건지 궁금했다.
 
 <!-- more -->
 
@@ -59,8 +59,8 @@ Parquet File
 ### 각 구성 요소의 역할
 
 **1. Row Group (Row Group)**
-- Parquet 파일을 논리적으로 나누는 단위
-- 독립적으로 처리 가능한 데이터 블록
+- Parquet 파일을 논리적으로 나누는 단위 
+- 독립적으로 처리 가능한 데이터 블록 -> 병렬 처리의 최소 단위! 
 - 통계 정보만 저장 (min/max, 행 개수, 크기)
 - **중요**: Row Group 자체에는 정렬 정보가 없다
 
